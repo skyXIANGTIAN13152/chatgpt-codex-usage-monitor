@@ -1,0 +1,22 @@
+# Local build and IDE output
+/build/
+/build*/
+/.vs/
+/CMakeFiles/
+
+# Generated distribution and capture data
+/dist/
+/outputs/
+/work/
+/third_party/
+/Data/
+*.log
+*.dmp
+
+# Binaries and archives are distributed through GitHub Releases, not Git history.
+*.exe
+*.zip
+*.7z
+
+# Intermediate chroma-key source
+resources/usage_monitor_icon_chroma.png
