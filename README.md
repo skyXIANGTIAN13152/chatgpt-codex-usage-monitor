@@ -2,7 +2,7 @@
 
 中文说明 · [English README](README.en.md)
 
-这是一个 C++20 / 原生 Win32 的轻量 Windows HUD。它通过新的桌面快捷方式启动 Microsoft Store / MSIX 版 ChatGPT，同时从本机已登录的官方 Codex CLI App Server 读取 ChatGPT 账户中的 Codex 额度窗口。默认使用 300×90 的紧凑模式。ChatGPT 的有效顶层窗口全部关闭并持续 5 秒后，监视器自动退出；它不会提前常驻等待 ChatGPT，也不是开机常驻程序，不会安装服务。
+这是一个 C++20 / 原生 Win32 的轻量 Windows HUD。它通过新的桌面快捷方式启动 Microsoft Store / MSIX 版 ChatGPT，同时从本机已登录的官方 Codex CLI App Server 读取 ChatGPT 账户中的 Codex 额度窗口。默认使用 80% 整体缩放的紧凑模式，约为 240×72；右键托盘菜单可按 5% 在 60%–140% 之间自由调整，且会同步缩放胸甲、能量灯、进度条、字体和粒子效果。用户选择的尺寸会写入配置并作为下次启动的默认尺寸。ChatGPT 的有效顶层窗口全部关闭并持续 5 秒后，监视器自动退出；它不会提前常驻等待 ChatGPT，也不是开机常驻程序，不会安装服务。
 
 ## 它显示什么
 

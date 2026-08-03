@@ -47,6 +47,11 @@ int LogicalHeight(HudSizeMode mode) {
   return 115;
 }
 
+float HudScale(int percent) {
+  return static_cast<float>(std::clamp(percent, kMinHudScalePercent,
+                                       kMaxHudScalePercent)) / 100.0f;
+}
+
 std::wstring WindowLabel(const RateWindow& window) {
   if (!window.bucketName.empty() && window.bucketName != "codex") return Utf8ToWide(window.bucketName);
   if (window.windowDurationMins >= 6 * 24 * 60) return L"周额度";
@@ -193,7 +198,7 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       RECT client{};
       GetClientRect(hwnd_, &client);
       if (HitTestHudControl(point.x, point.y, client.right, client.bottom,
-                            GetDpiForWindow(hwnd_)) != HudControl::None) return HTCLIENT;
+                            GetDpiForWindow(hwnd_), HudScale(settings_.scalePercent)) != HudControl::None) return HTCLIENT;
       return HTCAPTION;
     }
     case WM_LBUTTONUP: {
@@ -202,7 +207,8 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       const int x = GET_X_LPARAM(lparam);
       const int y = GET_Y_LPARAM(lparam);
       const HudControl control = HitTestHudControl(x, y, client.right, client.bottom,
-                                                   GetDpiForWindow(hwnd_));
+                                                   GetDpiForWindow(hwnd_),
+                                                   HudScale(settings_.scalePercent));
       if (control == HudControl::Minimize) {
         hidden_ = true;
         ShowWindow(hwnd_, SW_HIDE);
@@ -687,7 +693,11 @@ void OverlayWindow::Paint() {
   renderTarget_->BeginDraw();
   renderTarget_->SetTransform(D2D1::Matrix3x2F::Identity());
   renderTarget_->Clear(D2D1::ColorF(0.025f, 0.03f, 0.045f, 1.0f));
-  const D2D1_SIZE_F size = renderTarget_->GetSize();
+  const D2D1_SIZE_F renderSize = renderTarget_->GetSize();
+  const float uiScale = HudScale(settings_.scalePercent);
+  const D2D1_SIZE_F size = D2D1::SizeF(renderSize.width / uiScale,
+                                       renderSize.height / uiScale);
+  renderTarget_->SetTransform(D2D1::Matrix3x2F::Scale(uiScale, uiScale));
 
   ID2D1SolidColorBrush* background = nullptr;
   ID2D1SolidColorBrush* border = nullptr;
@@ -1189,6 +1199,7 @@ void OverlayWindow::Paint() {
   Release(text);
   Release(border);
   Release(background);
+  renderTarget_->SetTransform(D2D1::Matrix3x2F::Identity());
   const HRESULT result = renderTarget_->EndDraw();
   if (result == D2DERR_RECREATE_TARGET) DiscardGraphicsResources();
   if (!workingSetTrimmed_) {
@@ -1313,8 +1324,11 @@ void OverlayWindow::FollowChatGptWindow() {
 
 void OverlayWindow::ResizeForMode() {
   const UINT dpi = hwnd_ ? GetDpiForWindow(hwnd_) : GetDpiForSystem();
-  const int width = MulDiv(LogicalWidth(settings_.sizeMode), static_cast<int>(dpi), 96);
-  const int height = MulDiv(LogicalHeight(settings_.sizeMode), static_cast<int>(dpi), 96);
+  const float uiScale = HudScale(settings_.scalePercent);
+  const int logicalWidth = static_cast<int>(std::lround(LogicalWidth(settings_.sizeMode) * uiScale));
+  const int logicalHeight = static_cast<int>(std::lround(LogicalHeight(settings_.sizeMode) * uiScale));
+  const int width = MulDiv(logicalWidth, static_cast<int>(dpi), 96);
+  const int height = MulDiv(logicalHeight, static_cast<int>(dpi), 96);
   SetWindowPos(hwnd_, nullptr, 0, 0, width, height,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   DiscardGraphicsResources();
@@ -1482,9 +1496,21 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       settings_.sizeMode = static_cast<HudSizeMode>((static_cast<int>(settings_.sizeMode) + 1) % 3);
       ResizeForMode();
       break;
+    case kTrayScaleDown:
+      settings_.scalePercent = std::max(kMinHudScalePercent, settings_.scalePercent - 5);
+      ResizeForMode();
+      break;
+    case kTrayScaleUp:
+      settings_.scalePercent = std::min(kMaxHudScalePercent, settings_.scalePercent + 5);
+      ResizeForMode();
+      break;
+    case kTrayScaleReset:
+      settings_.scalePercent = kDefaultHudScalePercent;
+      ResizeForMode();
+      break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0\n\n"
+          L"ChatGPT Codex Usage Monitor 1.0.1\n\n"
           L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
           L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
           L"关于", MB_OK | MB_ICONINFORMATION);
