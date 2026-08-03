@@ -3,6 +3,15 @@
 #include <shellapi.h>
 
 namespace monitor {
+namespace {
+
+const wchar_t* HudSizeModeLabel(HudSizeMode mode) {
+  if (mode == HudSizeMode::Compact) return L"信息布局：紧凑";
+  if (mode == HudSizeMode::Expanded) return L"信息布局：展开";
+  return L"信息布局：标准";
+}
+
+}  // namespace
 
 void OverlayWindow::AddTrayIcon() {
   NOTIFYICONDATAW data{};
@@ -76,7 +85,13 @@ void OverlayWindow::ShowTrayMenu(POINT point) {
   swprintf_s(threshold, L"闪烁阈值：%d%%（左减 / 右加）", settings_.energy.warningThreshold);
   AppendMenuW(menu, MF_STRING, kTrayThresholdDown, threshold);
   AppendMenuW(menu, MF_STRING, kTrayThresholdUp, L"提高闪烁阈值 5%");
-  AppendMenuW(menu, MF_STRING, kTraySizeMode, L"切换 HUD 尺寸");
+  wchar_t scaleLabel[64]{};
+  swprintf_s(scaleLabel, L"整体缩放：%d%%", settings_.scalePercent);
+  AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, scaleLabel);
+  AppendMenuW(menu, MF_STRING, kTrayScaleDown, L"整体缩小 5%");
+  AppendMenuW(menu, MF_STRING, kTrayScaleUp, L"整体放大 5%");
+  AppendMenuW(menu, MF_STRING, kTrayScaleReset, L"恢复默认整体大小");
+  AppendMenuW(menu, MF_STRING, kTraySizeMode, HudSizeModeLabel(settings_.sizeMode));
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kTrayAbout, L"关于");
   AppendMenuW(menu, MF_STRING, kTrayExit, L"退出额度显示器");

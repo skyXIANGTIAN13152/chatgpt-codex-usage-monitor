@@ -58,6 +58,10 @@ Settings LoadSettings() {
     settings.sizeMode = ClampEnum(*value, HudSizeMode::Compact,
                                   HudSizeMode::Expanded, HudSizeMode::Standard);
   }
+  if (auto value = IntField(parsed.value, "scalePercent")) {
+    settings.scalePercent = std::clamp(*value, kMinHudScalePercent,
+                                       kMaxHudScalePercent);
+  }
   if (auto value = IntField(parsed.value, "warningThreshold")) {
     settings.energy.warningThreshold = std::clamp(*value, 10, 80);
   }
@@ -91,6 +95,7 @@ bool SaveSettings(const Settings& settings) {
          << "  \"themeEnabled\": " << (settings.themeEnabled ? "true" : "false") << ",\n"
          << "  \"displayMode\": " << static_cast<int>(settings.displayMode) << ",\n"
          << "  \"sizeMode\": " << static_cast<int>(settings.sizeMode) << ",\n"
+         << "  \"scalePercent\": " << settings.scalePercent << ",\n"
          << "  \"warningThreshold\": " << settings.energy.warningThreshold << ",\n"
          << "  \"blinkStyle\": " << static_cast<int>(settings.energy.blinkStyle) << ",\n"
          << "  \"stoneAtZero\": " << (settings.energy.stoneAtZero ? "true" : "false") << ",\n"

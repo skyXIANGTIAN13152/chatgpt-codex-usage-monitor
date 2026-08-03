@@ -7,6 +7,10 @@ namespace monitor {
 enum class IndicatorDisplayMode { ProgressOnly, EnergyOnly, Both };
 enum class HudSizeMode { Compact, Standard, Expanded };
 
+constexpr int kDefaultHudScalePercent = 80;
+constexpr int kMinHudScalePercent = 60;
+constexpr int kMaxHudScalePercent = 140;
+
 struct Settings {
   int x = INT_MIN;
   int y = INT_MIN;
@@ -16,6 +20,7 @@ struct Settings {
   bool themeEnabled = true;
   IndicatorDisplayMode displayMode = IndicatorDisplayMode::Both;
   HudSizeMode sizeMode = HudSizeMode::Compact;
+  int scalePercent = kDefaultHudScalePercent;
   EnergyIndicatorConfig energy;
   int selectedWindow = 0;
   bool debugLogging = false;

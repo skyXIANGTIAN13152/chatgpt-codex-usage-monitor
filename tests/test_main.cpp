@@ -138,6 +138,11 @@ void TestHudInteractions() {
   CHECK(monitor::HitTestHudControl(392, 109, 450, 135, 144) == HudControl::Minimize);
   CHECK(monitor::HitTestHudControl(415, 109, 450, 135, 144) == HudControl::Minimize);
 
+  // The same controls remain aligned when the whole HUD is scaled to 80%.
+  CHECK(monitor::HitTestHudControl(196, 58, 240, 72, 96, 0.8f) == HudControl::Settings);
+  CHECK(monitor::HitTestHudControl(216, 58, 240, 72, 96, 0.8f) == HudControl::Minimize);
+  CHECK(monitor::HitTestHudControl(175, 58, 240, 72, 96, 0.8f) == HudControl::None);
+
   // Some shells emit both mouse-up and NIN_SELECT. Repeating restore stays visible.
   bool hidden = true;
   hidden = monitor::HiddenAfterTrayPrimaryActivation(hidden);

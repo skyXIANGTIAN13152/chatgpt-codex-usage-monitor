@@ -157,7 +157,7 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
   const std::string initialize =
       "{\"method\":\"initialize\",\"id\":1,\"params\":{\"clientInfo\":{"
       "\"name\":\"chatgpt_codex_usage_monitor\","
-      "\"title\":\"ChatGPT Codex Usage Monitor\",\"version\":\"1.0.0\"}}}";
+      "\"title\":\"ChatGPT Codex Usage Monitor\",\"version\":\"1.0.1\"}}}";
   if (!WriteLine(initialize) || !WriteLine("{\"method\":\"initialized\",\"params\":{}}")) {
     ReportError(AppServerErrorKind::Protocol, L"无法发送 App Server 初始化消息。");
     Stop();

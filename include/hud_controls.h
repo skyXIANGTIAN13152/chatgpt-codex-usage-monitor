@@ -24,7 +24,7 @@ struct HudControlLayout {
 
 HudControlLayout CalculateHudControlLayout(float widthDips, float heightDips);
 HudControl HitTestHudControl(int xPixels, int yPixels, int widthPixels,
-                             int heightPixels, UINT dpi);
+                             int heightPixels, UINT dpi, float uiScale = 1.0f);
 
 // Primary activation of a notification icon is a restore action, not a toggle.
 // Returning false makes duplicate WM_LBUTTONUP/NIN_SELECT notifications idempotent.

@@ -22,8 +22,10 @@ HudControlLayout CalculateHudControlLayout(float widthDips, float heightDips) {
 }
 
 HudControl HitTestHudControl(int xPixels, int yPixels, int widthPixels,
-                             int heightPixels, UINT dpi) {
-  const float scale = static_cast<float>(std::max(dpi, 96u)) / 96.0f;
+                             int heightPixels, UINT dpi, float uiScale) {
+  const float dpiScale = static_cast<float>(std::max(dpi, 96u)) / 96.0f;
+  uiScale = std::clamp(uiScale, 0.5f, 2.0f);
+  const float scale = dpiScale * uiScale;
   const float x = static_cast<float>(xPixels) / scale;
   const float y = static_cast<float>(yPixels) / scale;
   const auto layout = CalculateHudControlLayout(

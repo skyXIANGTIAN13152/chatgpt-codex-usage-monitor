@@ -106,6 +106,9 @@ enum TrayCommand : UINT {
   kTraySizeMode,
   kTrayAbout,
   kTrayExit,
+  kTrayScaleDown,
+  kTrayScaleUp,
+  kTrayScaleReset,
 };
 
 }  // namespace monitor
