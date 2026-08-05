@@ -238,14 +238,24 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       ClampToWorkArea(&rect);
       SetWindowPos(hwnd_, nullptr, rect.left, rect.top, 0, 0,
                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+      // A monitor hot-plug can keep the old HWND render target alive even
+      // though the window is now on a different DPI/virtual screen. Rebuild
+      // the target and reapply the persisted logical HUD size.
+      ResizeForMode();
+      InvalidateRect(hwnd_, nullptr, FALSE);
       return 0;
     }
     case WM_DPICHANGED: {
       const RECT* suggested = reinterpret_cast<const RECT*>(lparam);
-      SetWindowPos(hwnd_, nullptr, suggested->left, suggested->top,
-                   suggested->right - suggested->left, suggested->bottom - suggested->top,
-                   SWP_NOZORDER | SWP_NOACTIVATE);
-      DiscardGraphicsResources();
+      if (suggested) {
+        SetWindowPos(hwnd_, nullptr, suggested->left, suggested->top,
+                     suggested->right - suggested->left, suggested->bottom - suggested->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+      }
+      // The suggested rectangle is DPI-aware, but may not match the user's
+      // selected HUD scale. ResizeForMode recomputes it from the new DPI and
+      // also discards the old Direct2D target.
+      ResizeForMode();
       InvalidateRect(hwnd_, nullptr, FALSE);
       return 0;
     }
@@ -365,6 +375,22 @@ void OverlayWindow::EnsureGraphicsResources() {
         }
       }
     }
+  }
+  if (renderTarget_) {
+    RECT client{};
+    GetClientRect(hwnd_, &client);
+    const D2D1_SIZE_U pixelSize = renderTarget_->GetPixelSize();
+    float targetDpiX = 0.0f;
+    float targetDpiY = 0.0f;
+    renderTarget_->GetDpi(&targetDpiX, &targetDpiY);
+    const float windowDpi = static_cast<float>(GetDpiForWindow(hwnd_));
+    const bool sizeMismatch = client.right > 0 && client.bottom > 0 &&
+        (pixelSize.width != static_cast<UINT>(client.right) ||
+         pixelSize.height != static_cast<UINT>(client.bottom));
+    const bool dpiMismatch = windowDpi > 0.0f &&
+        (std::fabs(targetDpiX - windowDpi) > 0.5f ||
+         std::fabs(targetDpiY - windowDpi) > 0.5f);
+    if (sizeMismatch || dpiMismatch) DiscardGraphicsResources();
   }
   if (!renderTarget_ && d2dFactory_) {
     RECT client{};
@@ -1510,7 +1536,7 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0.1\n\n"
+          L"ChatGPT Codex Usage Monitor 1.0.2\n\n"
           L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
           L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
           L"关于", MB_OK | MB_ICONINFORMATION);
