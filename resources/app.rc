@@ -10,8 +10,8 @@ IDR_TIGA_CHEST_WARNING_OFF_PNG RCDATA "tiga_chest_warning_off.png"
 IDR_TIGA_CHEST_STONE_PNG RCDATA "tiga_chest_stone.png"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,1,0
- PRODUCTVERSION 1,0,1,0
+ FILEVERSION 1,0,2,0
+ PRODUCTVERSION 1,0,2,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -28,11 +28,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Open-source local utility"
       VALUE "FileDescription", "ChatGPT Codex Usage Monitor"
-      VALUE "FileVersion", "1.0.1"
+      VALUE "FileVersion", "1.0.2"
       VALUE "InternalName", "ChatGPTCodexUsageMonitor"
       VALUE "OriginalFilename", "ChatGPTCodexUsageMonitor.exe"
       VALUE "ProductName", "ChatGPT Codex Usage Monitor"
-      VALUE "ProductVersion", "1.0.1"
+      VALUE "ProductVersion", "1.0.2"
     END
   END
   BLOCK "VarFileInfo"
