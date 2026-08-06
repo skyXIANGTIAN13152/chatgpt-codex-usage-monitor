@@ -54,6 +54,11 @@ Settings LoadSettings() {
     settings.displayMode = ClampEnum(*value, IndicatorDisplayMode::ProgressOnly,
                                      IndicatorDisplayMode::Both, IndicatorDisplayMode::Both);
   }
+  if (auto value = IntField(parsed.value, "progressDisplayMode")) {
+    settings.progressDisplayMode = ClampEnum(*value, ProgressDisplayMode::Bar,
+                                             ProgressDisplayMode::Ring,
+                                             ProgressDisplayMode::Bar);
+  }
   if (auto value = IntField(parsed.value, "sizeMode")) {
     settings.sizeMode = ClampEnum(*value, HudSizeMode::Compact,
                                   HudSizeMode::Expanded, HudSizeMode::Standard);
@@ -86,7 +91,7 @@ bool SaveSettings(const Settings& settings) {
   std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
   if (!stream) return false;
   stream << "{\n"
-         << "  \"configVersion\": 2,\n"
+         << "  \"configVersion\": 3,\n"
          << "  \"x\": " << settings.x << ",\n"
          << "  \"y\": " << settings.y << ",\n"
          << "  \"alwaysOnTop\": " << (settings.alwaysOnTop ? "true" : "false") << ",\n"
@@ -94,6 +99,7 @@ bool SaveSettings(const Settings& settings) {
          << "  \"refreshSeconds\": " << settings.refreshSeconds << ",\n"
          << "  \"themeEnabled\": " << (settings.themeEnabled ? "true" : "false") << ",\n"
          << "  \"displayMode\": " << static_cast<int>(settings.displayMode) << ",\n"
+         << "  \"progressDisplayMode\": " << static_cast<int>(settings.progressDisplayMode) << ",\n"
          << "  \"sizeMode\": " << static_cast<int>(settings.sizeMode) << ",\n"
          << "  \"scalePercent\": " << settings.scalePercent << ",\n"
          << "  \"warningThreshold\": " << settings.energy.warningThreshold << ",\n"

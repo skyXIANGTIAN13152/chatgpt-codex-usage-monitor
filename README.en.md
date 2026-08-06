@@ -2,7 +2,7 @@
 
 [中文说明](README.md) · English
 
-An unofficial, lightweight Windows HUD for showing Codex usage windows alongside the ChatGPT desktop app. It is written in C++20 with native Win32 and Direct2D. The monitor follows the ChatGPT desktop window, reads rate-limit data from the locally installed official Codex CLI App Server, and exits after all eligible ChatGPT windows have been closed for five seconds. The default is an 80% compact layout (about 240×72); the tray menu provides 5% steps from 60% to 140% and scales the chest, energy lens, bar, typography, and ion particles together. The selected size is saved and reused as the next launch default.
+An unofficial, lightweight Windows HUD for showing Codex usage windows alongside the ChatGPT desktop app. It is written in C++20 with native Win32 and Direct2D. The monitor follows the ChatGPT desktop window, reads rate-limit data from the locally installed official Codex CLI App Server, and exits after all eligible ChatGPT windows have been closed for five seconds. The default is an 80% compact layout (about 240×72); the tray menu provides 5% steps from 60% to 140% and scales the chest, energy lens, bar/ring, typography, and ion particles together. The usage display can switch between a light-energy bar and a compact circular ring around the percentage. The selected size and display style are saved and reused as the next launch defaults.
 
 ## What it shows
 
@@ -16,7 +16,7 @@ The monitor displays the percentages returned by the official interface. It does
 
 ## Theme and visual states
 
-The optional tribute theme uses the owner-provided chest artwork and an original Direct2D background inspired by light, dawn, and energy. The chest geometry stays aligned across states:
+The optional tribute theme uses the owner-provided chest artwork and an original Direct2D background inspired by light, dawn, and energy. The chest geometry stays aligned across states. The progress display can be rendered as either a luminous bar or a circular energy ring:
 
 - Above the warning threshold: blue energy lens and cyan quantum UI typography;
 - Below the threshold: the original red warning lens with synchronized red/pink ion typography;

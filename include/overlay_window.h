@@ -87,6 +87,7 @@ class OverlayWindow {
   IDWriteTextFormat* textSmall_ = nullptr;
   IDWriteTextFormat* textMedium_ = nullptr;
   IDWriteTextFormat* textLarge_ = nullptr;
+  IDWriteTextFormat* textRing_ = nullptr;
 };
 
 enum TrayCommand : UINT {
@@ -95,6 +96,7 @@ enum TrayCommand : UINT {
   kTrayUsage,
   kTrayOpenChatGpt,
   kTrayDisplayMode,
+  kTrayProgressDisplayMode,
   kTrayNextWindow,
   kTrayFollow,
   kTrayTheme,

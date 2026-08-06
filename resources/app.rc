@@ -28,11 +28,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Open-source local utility"
       VALUE "FileDescription", "ChatGPT Codex Usage Monitor"
-      VALUE "FileVersion", "1.0.2"
+      VALUE "FileVersion", "1.0.3"
       VALUE "InternalName", "ChatGPTCodexUsageMonitor"
       VALUE "OriginalFilename", "ChatGPTCodexUsageMonitor.exe"
       VALUE "ProductName", "ChatGPT Codex Usage Monitor"
-      VALUE "ProductVersion", "1.0.2"
+      VALUE "ProductVersion", "1.0.3"
     END
   END
   BLOCK "VarFileInfo"

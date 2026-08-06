@@ -70,6 +70,10 @@ void OverlayWindow::ShowTrayMenu(POINT point) {
                            settings_.displayMode == IndicatorDisplayMode::ProgressOnly ? L"显示：仅进度条" :
                            L"显示：仅能量指示器";
   AppendMenuW(menu, MF_STRING, kTrayDisplayMode, display);
+  const wchar_t* progressDisplay = settings_.progressDisplayMode == ProgressDisplayMode::Ring
+      ? L"额度形式：光能圆环"
+      : L"额度形式：光能条";
+  AppendMenuW(menu, MF_STRING, kTrayProgressDisplayMode, progressDisplay);
   if (snapshot_ && snapshot_->windows.size() > 1) {
     AppendMenuW(menu, MF_STRING, kTrayNextWindow, L"切换主要/次要额度窗口");
   }

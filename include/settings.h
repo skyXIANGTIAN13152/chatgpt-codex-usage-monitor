@@ -5,6 +5,7 @@
 namespace monitor {
 
 enum class IndicatorDisplayMode { ProgressOnly, EnergyOnly, Both };
+enum class ProgressDisplayMode { Bar, Ring };
 enum class HudSizeMode { Compact, Standard, Expanded };
 
 constexpr int kDefaultHudScalePercent = 80;
@@ -19,6 +20,7 @@ struct Settings {
   int refreshSeconds = 60;
   bool themeEnabled = true;
   IndicatorDisplayMode displayMode = IndicatorDisplayMode::Both;
+  ProgressDisplayMode progressDisplayMode = ProgressDisplayMode::Bar;
   HudSizeMode sizeMode = HudSizeMode::Compact;
   int scalePercent = kDefaultHudScalePercent;
   EnergyIndicatorConfig energy;
