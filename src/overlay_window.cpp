@@ -35,7 +35,12 @@ void CALLBACK InterfaceChanged(void* context, PMIB_IPINTERFACE_ROW,
   }
 }
 
-int LogicalWidth(HudSizeMode mode) {
+int LogicalWidth(HudSizeMode mode, ProgressDisplayMode progressDisplayMode) {
+  if (progressDisplayMode == ProgressDisplayMode::Ring) {
+    if (mode == HudSizeMode::Compact) return 280;
+    if (mode == HudSizeMode::Expanded) return 380;
+    return 330;
+  }
   if (mode == HudSizeMode::Compact) return 300;
   if (mode == HudSizeMode::Expanded) return 400;
   return 350;
@@ -74,6 +79,7 @@ OverlayWindow::~OverlayWindow() {
   Release(textSmall_);
   Release(textMedium_);
   Release(textLarge_);
+  Release(textRing_);
   Release(writeFactory_);
   Release(wicFactory_);
   Release(d2dFactory_);
@@ -113,6 +119,7 @@ bool OverlayWindow::Create() {
 
   ResizeForMode();
   PositionInitially();
+  taskbarCreatedMessage_ = RegisterWindowMessageW(L"TaskbarCreated");
   AddTrayIcon();
   NotifyIpInterfaceChange(AF_UNSPEC, InterfaceChanged, hwnd_, FALSE, &networkNotification_);
 
@@ -182,6 +189,11 @@ LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wpara
 }
 
 LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam) {
+  if (taskbarCreatedMessage_ != 0 && message == taskbarCreatedMessage_) {
+    AddTrayIcon();
+    UpdateTrayTooltip();
+    return 0;
+  }
   switch (message) {
     case WM_PAINT:
       Paint();
@@ -283,6 +295,9 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       } else if (wparam == kFollowCoalesceTimer) {
         KillTimer(hwnd_, kFollowCoalesceTimer);
         FollowChatGptWindow();
+      } else if (wparam == kTrayRetryTimer) {
+        AddTrayIcon();
+        if (trayIconAdded_) UpdateTrayTooltip();
       }
       return 0;
     case WM_MONITOR_SNAPSHOT: {
@@ -365,6 +380,10 @@ void OverlayWindow::EnsureGraphicsResources() {
       writeFactory_->CreateTextFormat(L"Segoe UI Variable", nullptr,
           DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
           DWRITE_FONT_STRETCH_NORMAL, 30.0f, L"zh-CN", &textLarge_);
+      writeFactory_->CreateTextFormat(L"Segoe UI Variable", nullptr,
+          DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
+          DWRITE_FONT_STRETCH_NORMAL, 20.0f, L"zh-CN", &textRing_);
+      if (textRing_) textRing_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
       if (textSmall_) {
         textSmall_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
         DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
@@ -887,15 +906,12 @@ void OverlayWindow::Paint() {
                                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
   };
 
-  const float ionPulse = warningState && !blinkOn_ ? 0.42f : 1.0f;
-
   auto drawIonField = [&](const D2D1_RECT_F& rect, UINT32 seed,
                           int count, float strength) {
     if (stonePanel || !ionCore || count <= 0) return;
     ID2D1SolidColorBrush* charge = warningState ? warningIonParticle : ionParticle;
     ID2D1SolidColorBrush* orbit = warningState ? warningIonGlow : ionViolet;
     if (!charge || !orbit) return;
-    strength *= ionPulse;
     UINT32 state = seed;
     const float rectWidth = std::max(1.0f, rect.right - rect.left);
     const float rectHeight = std::max(1.0f, rect.bottom - rect.top);
@@ -957,7 +973,7 @@ void OverlayWindow::Paint() {
       return;
     }
 
-    const float energizedStrength = strength * ionPulse;
+    const float energizedStrength = strength;
     ID2D1SolidColorBrush* outerGlow = warningState ? warningIonGlow : ionOuterGlow;
     ID2D1SolidColorBrush* innerGlow = warningState ? warningIonParticle : ionInnerGlow;
     if (outerGlow) {
@@ -1000,8 +1016,147 @@ void OverlayWindow::Paint() {
   };
 
   const float percentWidth = 64.0f;
-  const float barRight = rightEdge - percentWidth - 6.0f;
-  if (showProgress) {
+  const bool ringProgress = showProgress &&
+                            settings_.progressDisplayMode == ProgressDisplayMode::Ring;
+  float barRight = rightEdge - percentWidth - 6.0f;
+  float infoLeft = contentLeft;
+  std::wstring percent = L"--";
+  if (window) {
+    wchar_t buffer[16]{};
+    swprintf_s(buffer, L"%.0f%%", window->remainingPercent);
+    percent = buffer;
+  }
+
+  auto drawRingArc = [&](const D2D1_ELLIPSE& ellipse, float sweepDegrees,
+                         ID2D1Brush* brush, float strokeWidth) {
+    if (!brush || sweepDegrees <= 0.0f) return;
+    if (sweepDegrees >= 359.5f) {
+      renderTarget_->DrawEllipse(ellipse, brush, strokeWidth);
+      return;
+    }
+    if (!d2dFactory_) return;
+    ID2D1PathGeometry* geometry = nullptr;
+    ID2D1GeometrySink* sink = nullptr;
+    if (FAILED(d2dFactory_->CreatePathGeometry(&geometry)) ||
+        FAILED(geometry->Open(&sink))) {
+      Release(sink);
+      Release(geometry);
+      return;
+    }
+    const float startRadians = -1.57079632679f;
+    const float endRadians = startRadians + sweepDegrees * 0.01745329252f;
+    const D2D1_POINT_2F start = D2D1::Point2F(
+        ellipse.point.x + ellipse.radiusX * std::cos(startRadians),
+        ellipse.point.y + ellipse.radiusY * std::sin(startRadians));
+    const D2D1_POINT_2F end = D2D1::Point2F(
+        ellipse.point.x + ellipse.radiusX * std::cos(endRadians),
+        ellipse.point.y + ellipse.radiusY * std::sin(endRadians));
+    sink->BeginFigure(start, D2D1_FIGURE_BEGIN_HOLLOW);
+    D2D1_ARC_SEGMENT arc{};
+    arc.point = end;
+    arc.size = D2D1::SizeF(ellipse.radiusX, ellipse.radiusY);
+    arc.rotationAngle = 0.0f;
+    arc.sweepDirection = D2D1_SWEEP_DIRECTION_CLOCKWISE;
+    arc.arcSize = sweepDegrees >= 180.0f ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL;
+    sink->AddArc(arc);
+    sink->EndFigure(D2D1_FIGURE_END_OPEN);
+    sink->Close();
+    renderTarget_->DrawGeometry(geometry, brush, strokeWidth);
+    Release(sink);
+    Release(geometry);
+  };
+
+  if (ringProgress) {
+    const float diameter = settings_.sizeMode == HudSizeMode::Compact ? 52.0f
+        : (settings_.sizeMode == HudSizeMode::Expanded ? 72.0f : 62.0f);
+    const float top = settings_.sizeMode == HudSizeMode::Compact ? 7.0f
+        : (settings_.sizeMode == HudSizeMode::Expanded ? 17.0f : 11.0f);
+    const float ringLeft = showEnergy ? 110.0f : contentLeft;
+    const D2D1_ELLIPSE ring = D2D1::Ellipse(
+        D2D1::Point2F(ringLeft + diameter * 0.5f + 1.0f,
+                      top + diameter * 0.5f),
+        diameter * 0.5f - 4.0f, diameter * 0.5f - 4.0f);
+    infoLeft = ringLeft + diameter + 10.0f;
+
+    ID2D1SolidColorBrush* ringTrack = nullptr;
+    ID2D1SolidColorBrush* ringEdge = nullptr;
+    ID2D1SolidColorBrush* ringGlow = nullptr;
+    ID2D1SolidColorBrush* ringHead = nullptr;
+    ID2D1GradientStopCollection* ringStops = nullptr;
+    ID2D1LinearGradientBrush* ringEnergy = nullptr;
+    renderTarget_->CreateSolidColorBrush(D2D1::ColorF(0.07f, 0.11f, 0.19f, 0.95f), &ringTrack);
+    renderTarget_->CreateSolidColorBrush(D2D1::ColorF(0.20f, 0.36f, 0.54f, 0.86f), &ringEdge);
+
+    const bool warning = warningState || (dataAvailable && remaining <= settings_.energy.warningThreshold);
+    const bool dormant = stonePanel || !dataAvailable;
+    const float pulse = 1.0f;
+    if (!dormant) {
+      const D2D1_COLOR_F deep = warning
+          ? D2D1::ColorF(0.52f, 0.01f, 0.08f, pulse)
+          : D2D1::ColorF(0.00f, 0.34f, 0.76f, pulse);
+      const D2D1_COLOR_F bright = warning
+          ? D2D1::ColorF(1.00f, 0.08f, 0.18f, pulse)
+          : D2D1::ColorF(0.00f, 0.88f, 1.00f, pulse);
+      const D2D1_COLOR_F core = warning
+          ? D2D1::ColorF(1.00f, 0.72f, 0.76f, pulse)
+          : D2D1::ColorF(0.72f, 1.00f, 1.00f, pulse);
+      const D2D1_GRADIENT_STOP stops[] = {
+          {0.00f, deep}, {0.48f, bright}, {0.86f, bright}, {1.00f, core},
+      };
+      if (SUCCEEDED(renderTarget_->CreateGradientStopCollection(
+              stops, static_cast<UINT32>(std::size(stops)), D2D1_GAMMA_2_2,
+              D2D1_EXTEND_MODE_CLAMP, &ringStops))) {
+        renderTarget_->CreateLinearGradientBrush(
+            D2D1::LinearGradientBrushProperties(
+                D2D1::Point2F(ring.point.x - ring.radiusX, ring.point.y),
+                D2D1::Point2F(ring.point.x + ring.radiusX, ring.point.y)),
+            ringStops, &ringEnergy);
+      }
+      renderTarget_->CreateSolidColorBrush(
+          warning ? D2D1::ColorF(1.0f, 0.08f, 0.20f, 0.75f * pulse)
+                  : D2D1::ColorF(0.0f, 0.78f, 1.0f, 0.75f * pulse), &ringGlow);
+      renderTarget_->CreateSolidColorBrush(core, &ringHead);
+    }
+
+    if (ringTrack) renderTarget_->DrawEllipse(ring, ringTrack, 5.6f);
+    if (ringGlow && settings_.energy.glow) {
+      ringGlow->SetOpacity(0.24f * pulse);
+      drawRingArc(ring, 359.0f, ringGlow, 11.0f);
+    }
+    if (ringEnergy && dataAvailable && remaining > 0.0f) {
+      drawRingArc(ring, std::clamp(remaining, 0.0f, 100.0f) * 3.6f,
+                  ringEnergy, 5.6f);
+      if (ringHead && remaining < 99.9f) {
+        const float angle = -1.57079632679f + remaining * 0.06283185307f;
+        renderTarget_->FillEllipse(
+            D2D1::Ellipse(D2D1::Point2F(
+                              ring.point.x + ring.radiusX * std::cos(angle),
+                              ring.point.y + ring.radiusY * std::sin(angle)),
+                          2.5f, 2.5f), ringHead);
+      }
+    }
+    if (ringEdge) renderTarget_->DrawEllipse(ring, ringEdge, 0.8f);
+
+    if (textRing_) {
+      textRing_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+      textRing_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    }
+    drawIonText(percent, textRing_,
+                D2D1::RectF(ring.point.x - ring.radiusX - 2.0f,
+                            ring.point.y - ring.radiusY + 1.0f,
+                            ring.point.x + ring.radiusX + 2.0f,
+                            ring.point.y + ring.radiusY - 1.0f),
+                1.0f, 0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)), 0);
+    Release(ringEnergy);
+    Release(ringStops);
+    Release(ringHead);
+    Release(ringGlow);
+    Release(ringEdge);
+    Release(ringTrack);
+    barRight = rightEdge;
+  }
+
+  if (!ringProgress && showProgress) {
     const D2D1_RECT_F barRect = D2D1::RectF(contentLeft, 18.0f, barRight, 35.0f);
     const D2D1_ROUNDED_RECT bar = D2D1::RoundedRect(barRect, 6.0f, 6.0f);
     ID2D1SolidColorBrush* trackEdge = nullptr;
@@ -1014,7 +1169,7 @@ void OverlayWindow::Paint() {
       const float fillWidth = std::max(1.0f, fillRight - contentLeft);
       const float radius = std::min(6.0f, fillWidth * 0.5f);
       const bool warning = remaining <= settings_.energy.warningThreshold;
-      const float pulse = warning && !blinkOn_ ? 0.34f : 1.0f;
+      const float pulse = 1.0f;
       const D2D1_COLOR_F deep = warning
           ? D2D1::ColorF(0.52f, 0.01f, 0.08f, pulse)
           : D2D1::ColorF(0.00f, 0.34f, 0.76f, pulse);
@@ -1101,25 +1256,22 @@ void OverlayWindow::Paint() {
   }
 
   if (textLarge_) textLarge_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-  std::wstring percent = L"--";
-  if (window) {
-    wchar_t buffer[16]{};
-    swprintf_s(buffer, L"%.0f%%", window->remainingPercent);
-    percent = buffer;
+  if (!ringProgress) {
+    const D2D1_RECT_F percentRect =
+        D2D1::RectF(rightEdge - percentWidth, 7.0f, rightEdge, 45.0f);
+    drawIonText(percent, textLarge_, percentRect, 1.0f,
+                0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)), 0);
+    const float percentIonWidth = percent.size() >= 4 ? 63.0f
+        : (percent.size() == 3 ? 56.0f : 43.0f);
+    drawIonField(D2D1::RectF(rightEdge - percentIonWidth, 7.0f,
+                             rightEdge, 45.0f),
+                 0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)),
+                 4, 1.0f);
   }
-  const D2D1_RECT_F percentRect =
-      D2D1::RectF(rightEdge - percentWidth, 7.0f, rightEdge, 45.0f);
-  drawIonText(percent, textLarge_, percentRect, 1.0f,
-              0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)), 0);
-  const float percentIonWidth = percent.size() >= 4 ? 63.0f
-      : (percent.size() == 3 ? 56.0f : 43.0f);
-  drawIonField(D2D1::RectF(rightEdge - percentIonWidth, 7.0f,
-                           rightEdge, 45.0f),
-               0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)),
-               4, 1.0f);
   if (textLarge_) textLarge_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 
-  const float row2 = settings_.sizeMode == HudSizeMode::Compact ? 45.0f : 49.0f;
+  const float row2 = ringProgress ? 17.0f
+      : (settings_.sizeMode == HudSizeMode::Compact ? 45.0f : 49.0f);
   std::wstring countdown = L"RESET  --";
   std::wstring absolute = L"--";
   if (window && window->resetsAt) {
@@ -1128,7 +1280,12 @@ void OverlayWindow::Paint() {
     absolute = FormatLocalResetTime(*window->resetsAt);
   }
   const D2D1_RECT_F countdownRect =
-      D2D1::RectF(contentLeft, row2, barRight, row2 + 18);
+      D2D1::RectF(infoLeft, row2, barRight, row2 + 18);
+  if (textSmall_) {
+    textSmall_->SetTextAlignment(ringProgress
+        ? DWRITE_TEXT_ALIGNMENT_TRAILING
+        : DWRITE_TEXT_ALIGNMENT_LEADING);
+  }
   drawIonText(countdown, textSmall_, countdownRect, 0.64f,
               0xc013u + static_cast<UINT32>(countdown.size()), 2);
   if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
@@ -1136,7 +1293,9 @@ void OverlayWindow::Paint() {
       ? dormantIonText
       : (warningState ? warningIonMuted : ionMuted);
   if (secondaryText) secondaryText->SetOpacity(stonePanel ? 0.78f : 0.94f);
-  drawText(absolute, textSmall_, D2D1::RectF(barRight - 105, row2, rightEdge, row2 + 18),
+  const float absoluteRow = ringProgress ? row2 + 16.0f : row2;
+  drawText(absolute, textSmall_, D2D1::RectF(std::max(infoLeft, rightEdge - 105), absoluteRow,
+                                             rightEdge, absoluteRow + 18),
            secondaryText ? static_cast<ID2D1Brush*>(secondaryText)
                          : static_cast<ID2D1Brush*>(muted));
   if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -1156,7 +1315,7 @@ void OverlayWindow::Paint() {
   renderTarget_->CreateSolidColorBrush(statusColor, &statusBrush);
   ID2D1SolidColorBrush* statusHalo = warningState ? warningIonParticle : ionInnerGlow;
   if (!stonePanel && statusHalo) {
-    statusHalo->SetOpacity(0.12f * ionPulse);
+    statusHalo->SetOpacity(0.12f);
     renderTarget_->FillEllipse(
         D2D1::Ellipse(D2D1::Point2F(contentLeft + 3, row3 + 7), 5.0f, 5.0f),
         statusHalo);
@@ -1167,7 +1326,7 @@ void OverlayWindow::Paint() {
       D2D1::RectF(contentLeft + 11, row3, rightEdge - 55, row3 + 18);
   const std::wstring statusLine = CurrentStatusLine();
   if (!stonePanel && statusHalo) {
-    statusHalo->SetOpacity(0.070f * ionPulse);
+    statusHalo->SetOpacity(0.070f);
     constexpr D2D1_POINT_2F statusOffsets[] = {
         {-0.48f, 0.0f}, {0.48f, 0.0f}, {0.0f, -0.48f}, {0.0f, 0.48f},
     };
@@ -1351,7 +1510,12 @@ void OverlayWindow::FollowChatGptWindow() {
 void OverlayWindow::ResizeForMode() {
   const UINT dpi = hwnd_ ? GetDpiForWindow(hwnd_) : GetDpiForSystem();
   const float uiScale = HudScale(settings_.scalePercent);
-  const int logicalWidth = static_cast<int>(std::lround(LogicalWidth(settings_.sizeMode) * uiScale));
+  const ProgressDisplayMode layoutProgressMode =
+      settings_.displayMode == IndicatorDisplayMode::EnergyOnly
+          ? ProgressDisplayMode::Bar
+          : settings_.progressDisplayMode;
+  const int logicalWidth = static_cast<int>(std::lround(
+      LogicalWidth(settings_.sizeMode, layoutProgressMode) * uiScale));
   const int logicalHeight = static_cast<int>(std::lround(LogicalHeight(settings_.sizeMode) * uiScale));
   const int width = MulDiv(logicalWidth, static_cast<int>(dpi), 96);
   const int height = MulDiv(logicalHeight, static_cast<int>(dpi), 96);
@@ -1495,6 +1659,13 @@ void OverlayWindow::OnTrayCommand(UINT command) {
     case kTrayOpenChatGpt: OpenChatGpt(); break;
     case kTrayDisplayMode:
       settings_.displayMode = static_cast<IndicatorDisplayMode>((static_cast<int>(settings_.displayMode) + 1) % 3);
+      ResizeForMode();
+      break;
+    case kTrayProgressDisplayMode:
+      settings_.progressDisplayMode = settings_.progressDisplayMode == ProgressDisplayMode::Bar
+          ? ProgressDisplayMode::Ring
+          : ProgressDisplayMode::Bar;
+      ResizeForMode();
       break;
     case kTrayNextWindow:
       if (snapshot_ && !snapshot_->windows.empty()) {
@@ -1536,7 +1707,7 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0.2\n\n"
+          L"ChatGPT Codex Usage Monitor 1.0.3\n\n"
           L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
           L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
           L"关于", MB_OK | MB_ICONINFORMATION);

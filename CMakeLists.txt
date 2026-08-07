@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(ChatGPTCodexUsageMonitor VERSION 1.0.2 LANGUAGES CXX RC)
+project(ChatGPTCodexUsageMonitor VERSION 1.0.3 LANGUAGES CXX RC)
 
 if(NOT WIN32)
   message(FATAL_ERROR "This project targets Windows only.")

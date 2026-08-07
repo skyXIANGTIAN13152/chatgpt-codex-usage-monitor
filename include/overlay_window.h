@@ -74,6 +74,8 @@ class OverlayWindow {
   double previousRemaining_ = 101.0;
   std::vector<int> notifiedThresholds_;
   HANDLE networkNotification_ = nullptr;
+  UINT taskbarCreatedMessage_ = 0;
+  bool trayIconAdded_ = false;
 
   ID2D1Factory* d2dFactory_ = nullptr;
   ID2D1HwndRenderTarget* renderTarget_ = nullptr;
@@ -87,6 +89,7 @@ class OverlayWindow {
   IDWriteTextFormat* textSmall_ = nullptr;
   IDWriteTextFormat* textMedium_ = nullptr;
   IDWriteTextFormat* textLarge_ = nullptr;
+  IDWriteTextFormat* textRing_ = nullptr;
 };
 
 enum TrayCommand : UINT {
@@ -95,6 +98,7 @@ enum TrayCommand : UINT {
   kTrayUsage,
   kTrayOpenChatGpt,
   kTrayDisplayMode,
+  kTrayProgressDisplayMode,
   kTrayNextWindow,
   kTrayFollow,
   kTrayTheme,

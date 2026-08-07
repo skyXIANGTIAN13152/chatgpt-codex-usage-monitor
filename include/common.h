@@ -26,6 +26,7 @@ constexpr UINT WM_MONITOR_PROCESS_EXIT = WM_APP + 4;
 constexpr UINT WM_MONITOR_NETWORK_CHANGE = WM_APP + 5;
 constexpr UINT WM_MONITOR_TRAY = WM_APP + 6;
 constexpr UINT WM_MONITOR_SHOW = WM_APP + 7;
+constexpr UINT_PTR kTrayRetryTimer = 6;
 
 inline void SafeCloseHandle(HANDLE& handle) {
   if (handle && handle != INVALID_HANDLE_VALUE) {
@@ -40,4 +41,3 @@ std::wstring GetLocalAppDataDirectory();
 std::wstring JoinPath(std::wstring_view left, std::wstring_view right);
 
 }  // namespace monitor
-
