@@ -26,20 +26,34 @@ void OverlayWindow::AddTrayIcon() {
       LR_DEFAULTCOLOR | LR_SHARED));
   if (!data.hIcon) data.hIcon = LoadIconW(nullptr, IDI_INFORMATION);
   wcscpy_s(data.szTip, kProductName);
-  Shell_NotifyIconW(NIM_ADD, &data);
+  // Explorer can restart independently of this process. Remove any stale
+  // registration first, then add the icon again to the fresh notification area.
+  Shell_NotifyIconW(NIM_DELETE, &data);
+  trayIconAdded_ = Shell_NotifyIconW(NIM_ADD, &data) != FALSE;
+  if (!trayIconAdded_) {
+    SetTimer(hwnd_, kTrayRetryTimer, 1000, nullptr);
+    return;
+  }
   data.uVersion = NOTIFYICON_VERSION_4;
   Shell_NotifyIconW(NIM_SETVERSION, &data);
+  KillTimer(hwnd_, kTrayRetryTimer);
 }
 
 void OverlayWindow::RemoveTrayIcon() {
+  KillTimer(hwnd_, kTrayRetryTimer);
   NOTIFYICONDATAW data{};
   data.cbSize = sizeof(data);
   data.hWnd = hwnd_;
   data.uID = 1;
   Shell_NotifyIconW(NIM_DELETE, &data);
+  trayIconAdded_ = false;
 }
 
 void OverlayWindow::UpdateTrayTooltip() {
+  if (!trayIconAdded_) {
+    AddTrayIcon();
+    if (!trayIconAdded_) return;
+  }
   NOTIFYICONDATAW data{};
   data.cbSize = sizeof(data);
   data.hWnd = hwnd_;
@@ -52,7 +66,11 @@ void OverlayWindow::UpdateTrayTooltip() {
     tip += percent;
   }
   wcsncpy_s(data.szTip, tip.c_str(), _TRUNCATE);
-  Shell_NotifyIconW(NIM_MODIFY, &data);
+  if (!Shell_NotifyIconW(NIM_MODIFY, &data)) {
+    trayIconAdded_ = false;
+    AddTrayIcon();
+    if (trayIconAdded_) Shell_NotifyIconW(NIM_MODIFY, &data);
+  }
 }
 
 void OverlayWindow::ShowTrayMenu(POINT point) {

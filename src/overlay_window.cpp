@@ -119,6 +119,7 @@ bool OverlayWindow::Create() {
 
   ResizeForMode();
   PositionInitially();
+  taskbarCreatedMessage_ = RegisterWindowMessageW(L"TaskbarCreated");
   AddTrayIcon();
   NotifyIpInterfaceChange(AF_UNSPEC, InterfaceChanged, hwnd_, FALSE, &networkNotification_);
 
@@ -188,6 +189,11 @@ LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wpara
 }
 
 LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam) {
+  if (taskbarCreatedMessage_ != 0 && message == taskbarCreatedMessage_) {
+    AddTrayIcon();
+    UpdateTrayTooltip();
+    return 0;
+  }
   switch (message) {
     case WM_PAINT:
       Paint();
@@ -289,6 +295,9 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       } else if (wparam == kFollowCoalesceTimer) {
         KillTimer(hwnd_, kFollowCoalesceTimer);
         FollowChatGptWindow();
+      } else if (wparam == kTrayRetryTimer) {
+        AddTrayIcon();
+        if (trayIconAdded_) UpdateTrayTooltip();
       }
       return 0;
     case WM_MONITOR_SNAPSHOT: {
