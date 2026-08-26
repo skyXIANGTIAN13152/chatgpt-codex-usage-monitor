@@ -1,10 +1,28 @@
 #include "rate_limits.h"
+#include <cctype>
+#include <climits>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
 
 namespace monitor {
 namespace {
+
+constexpr int kFiveHourMinutes = 5 * 60;
+constexpr int kWeeklyMinutes = 7 * 24 * 60;
+
+int BucketPriority(const RateWindow& window) {
+  std::string id = window.bucketId;
+  std::transform(id.begin(), id.end(), id.begin(),
+                 [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+  if (id.empty() || id == "codex") return 0;
+  if (id.find("codex") != std::string::npos) return 1;
+  return 2;
+}
+
+int DurationDistance(const RateWindow& window, int targetMinutes) {
+  return std::abs(window.windowDurationMins - targetMinutes);
+}
 
 std::string StringField(const JsonValue& value, std::string_view key) {
   const JsonValue* field = value.Find(key);
@@ -158,6 +176,89 @@ double RemainingPercent(double usedPercent) {
   return std::clamp(100.0 - usedPercent, 0.0, 100.0);
 }
 
+QuotaWindowKind ClassifyQuotaWindow(const RateWindow& window) {
+  // App Server intentionally exposes primary/secondary as generic windows.
+  // Duration is the stable discriminator: 300 minutes and 10,080 minutes.
+  if (window.windowDurationMins >= 4 * 60 &&
+      window.windowDurationMins <= 6 * 60) {
+    return QuotaWindowKind::FiveHour;
+  }
+  if (window.windowDurationMins >= 6 * 24 * 60 &&
+      window.windowDurationMins <= 8 * 24 * 60) {
+    return QuotaWindowKind::Weekly;
+  }
+  return QuotaWindowKind::Other;
+}
+
+CodexQuotaWindows SelectCodexQuotaWindows(const RateLimitSnapshot& snapshot) {
+  CodexQuotaWindows selected;
+  long long bestPairScore = LLONG_MAX;
+
+  // Prefer two matching windows from the same quota bucket, then prefer the
+  // standard Codex bucket, and finally the closest durations. This prevents a
+  // model-specific limit from being paired with the account-wide weekly limit.
+  for (const RateWindow& weekly : snapshot.windows) {
+    if (ClassifyQuotaWindow(weekly) != QuotaWindowKind::Weekly) continue;
+    for (const RateWindow& fiveHour : snapshot.windows) {
+      if (ClassifyQuotaWindow(fiveHour) != QuotaWindowKind::FiveHour) continue;
+      const bool sameBucket = weekly.bucketId == fiveHour.bucketId;
+      const long long score = (sameBucket ? 0LL : 1000000LL) +
+          static_cast<long long>(BucketPriority(weekly) + BucketPriority(fiveHour)) * 10000LL +
+          static_cast<long long>(DurationDistance(weekly, kWeeklyMinutes)) * 10LL +
+          DurationDistance(fiveHour, kFiveHourMinutes);
+      if (score < bestPairScore) {
+        bestPairScore = score;
+        selected.weekly = &weekly;
+        selected.fiveHour = &fiveHour;
+      }
+    }
+  }
+  if (selected.weekly && selected.fiveHour) return selected;
+
+  auto chooseSingle = [&](QuotaWindowKind kind, int targetMinutes) {
+    const RateWindow* best = nullptr;
+    int bestScore = INT_MAX;
+    for (const RateWindow& window : snapshot.windows) {
+      if (ClassifyQuotaWindow(window) != kind) continue;
+      const int score = BucketPriority(window) * 100000 +
+                        DurationDistance(window, targetMinutes);
+      if (score < bestScore) {
+        best = &window;
+        bestScore = score;
+      }
+    }
+    return best;
+  };
+  selected.weekly = chooseSingle(QuotaWindowKind::Weekly, kWeeklyMinutes);
+  selected.fiveHour = chooseSingle(QuotaWindowKind::FiveHour, kFiveHourMinutes);
+  return selected;
+}
+
+RateLimitSnapshot MergeSparseRateLimitSnapshot(const RateLimitSnapshot& base,
+                                               const RateLimitSnapshot& update) {
+  RateLimitSnapshot merged = base;
+  for (const RateWindow& incoming : update.windows) {
+    const auto existing = std::find_if(
+        merged.windows.begin(), merged.windows.end(), [&](const RateWindow& current) {
+          return current.bucketId == incoming.bucketId &&
+                 current.windowName == incoming.windowName;
+        });
+    if (existing != merged.windows.end()) *existing = incoming;
+    else merged.windows.push_back(incoming);
+  }
+  if (update.credits.present) merged.credits = update.credits;
+  if (!update.planType.empty()) merged.planType = update.planType;
+  if (!update.rateLimitReachedType.empty()) {
+    merged.rateLimitReachedType = update.rateLimitReachedType;
+  }
+  merged.status = update.status;
+  merged.sparseUpdate = false;
+  merged.receivedAt = update.receivedAt;
+  merged.lastSuccessAt = update.lastSuccessAt;
+  merged.errorMessage = update.errorMessage;
+  return merged;
+}
+
 std::optional<std::chrono::system_clock::time_point> ParseResetTime(const JsonValue& value) {
   if (auto numeric = value.AsNumber()) {
     double seconds = *numeric;
@@ -205,6 +306,8 @@ std::optional<RateLimitSnapshot> ParseRateLimitMessage(std::string_view json,
 
   RateLimitSnapshot snapshot;
   snapshot.status = DataStatus::Live;
+  snapshot.sparseUpdate = StringField(parsed.value, "method") ==
+                          "account/rateLimits/updated";
   snapshot.receivedAt = std::chrono::system_clock::now();
   snapshot.lastSuccessAt = snapshot.receivedAt;
   snapshot.planType = StringField(*payload, "planType");

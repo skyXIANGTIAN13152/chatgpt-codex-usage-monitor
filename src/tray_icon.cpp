@@ -60,9 +60,16 @@ void OverlayWindow::UpdateTrayTooltip() {
   data.uID = 1;
   data.uFlags = NIF_TIP;
   std::wstring tip = L"Codex 额度 · " + DataStatusText(displayStatus_);
-  if (const RateWindow* window = SelectedWindow()) {
-    wchar_t percent[24]{};
-    swprintf_s(percent, L" %.0f%%", window->remainingPercent);
+  const CodexQuotaWindows windows = QuotaWindows();
+  if (const RateWindow* primary = windows.weekly ? windows.weekly : PrimaryQuotaWindow()) {
+    wchar_t percent[32]{};
+    const wchar_t* label = windows.weekly ? L"周" : L"当前";
+    swprintf_s(percent, L" · %s %.0f%%", label, primary->remainingPercent);
+    tip += percent;
+  }
+  if (ShowsFiveHourQuota()) {
+    wchar_t percent[32]{};
+    swprintf_s(percent, L" · 5H %.0f%%", windows.fiveHour->remainingPercent);
     tip += percent;
   }
   wcsncpy_s(data.szTip, tip.c_str(), _TRUNCATE);
@@ -92,9 +99,11 @@ void OverlayWindow::ShowTrayMenu(POINT point) {
       ? L"额度形式：光能圆环"
       : L"额度形式：光能条";
   AppendMenuW(menu, MF_STRING, kTrayProgressDisplayMode, progressDisplay);
-  if (snapshot_ && snapshot_->windows.size() > 1) {
-    AppendMenuW(menu, MF_STRING, kTrayNextWindow, L"切换主要/次要额度窗口");
-  }
+  const wchar_t* quotaDisplay =
+      settings_.quotaDisplayMode == QuotaDisplayMode::WeeklyAndFiveHour
+          ? L"额度窗口：周 + 5小时"
+          : L"额度窗口：仅周额度";
+  AppendMenuW(menu, MF_STRING, kTrayQuotaDisplayMode, quotaDisplay);
   AppendMenuW(menu, MF_STRING | (settings_.followChatGpt ? MF_CHECKED : 0), kTrayFollow,
               L"跟随 ChatGPT 窗口");
   AppendMenuW(menu, MF_STRING | (settings_.energy.glow ? MF_CHECKED : 0), kTrayGlow, L"轻微光晕");

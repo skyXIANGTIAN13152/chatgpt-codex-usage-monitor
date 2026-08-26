@@ -61,6 +61,11 @@ void TestParsing() {
   CHECK(!error.empty());
   auto empty = monitor::ParseRateLimitMessage(R"({"result":{"rateLimits":{"primary":null}}})", &error);
   CHECK(!empty.has_value());
+
+  auto sparse = monitor::ParseRateLimitMessage(
+      R"({"method":"account/rateLimits/updated","params":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":30,"windowDurationMins":300,"resetsAt":1893456000}}}})",
+      &error);
+  CHECK(sparse && sparse->sparseUpdate);
 }
 
 void TestResetAndStale() {
@@ -81,6 +86,70 @@ void TestResetAndStale() {
   snapshot.lastSuccessAt = now - std::chrono::seconds(10);
   CHECK(!monitor::IsSnapshotStale(snapshot, now, std::chrono::minutes(5)));
   CHECK(!monitor::DataStatusText(monitor::DataStatus::NetworkUnavailable).empty());
+}
+
+void TestQuotaWindowSelection() {
+  monitor::RateLimitSnapshot snapshot;
+  monitor::RateWindow modelWeekly;
+  modelWeekly.bucketId = "model-x";
+  modelWeekly.windowDurationMins = 10080;
+  modelWeekly.remainingPercent = 91;
+  snapshot.windows.push_back(modelWeekly);
+
+  monitor::RateWindow weekly;
+  weekly.bucketId = "codex";
+  weekly.windowName = "secondary";
+  weekly.windowDurationMins = 10080;
+  weekly.remainingPercent = 64;
+  snapshot.windows.push_back(weekly);
+
+  monitor::RateWindow fiveHour;
+  fiveHour.bucketId = "codex";
+  fiveHour.windowName = "primary";
+  fiveHour.windowDurationMins = 300;
+  fiveHour.remainingPercent = 37;
+  snapshot.windows.push_back(fiveHour);
+
+  const monitor::CodexQuotaWindows selected =
+      monitor::SelectCodexQuotaWindows(snapshot);
+  CHECK(selected.weekly != nullptr);
+  CHECK(selected.fiveHour != nullptr);
+  CHECK(selected.weekly && selected.weekly->bucketId == "codex");
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 64);
+  CHECK(selected.fiveHour && selected.fiveHour->remainingPercent == 37);
+  CHECK(monitor::ClassifyQuotaWindow(weekly) == monitor::QuotaWindowKind::Weekly);
+  CHECK(monitor::ClassifyQuotaWindow(fiveHour) == monitor::QuotaWindowKind::FiveHour);
+  CHECK(monitor::ClassifyQuotaWindow(monitor::RateWindow{}) ==
+        monitor::QuotaWindowKind::Other);
+
+  monitor::RateLimitSnapshot reversed;
+  reversed.windows = {fiveHour, weekly};
+  const monitor::CodexQuotaWindows reversedSelection =
+      monitor::SelectCodexQuotaWindows(reversed);
+  CHECK(reversedSelection.weekly && reversedSelection.weekly->remainingPercent == 64);
+  CHECK(reversedSelection.fiveHour && reversedSelection.fiveHour->remainingPercent == 37);
+
+  monitor::RateLimitSnapshot weeklyOnly;
+  weeklyOnly.windows.push_back(weekly);
+  const monitor::CodexQuotaWindows single =
+      monitor::SelectCodexQuotaWindows(weeklyOnly);
+  CHECK(single.weekly != nullptr);
+  CHECK(single.fiveHour == nullptr);
+
+  monitor::RateLimitSnapshot update;
+  update.sparseUpdate = true;
+  update.status = monitor::DataStatus::Live;
+  update.receivedAt = update.lastSuccessAt = std::chrono::system_clock::now();
+  fiveHour.remainingPercent = 22;
+  update.windows.push_back(fiveHour);
+  const monitor::RateLimitSnapshot merged =
+      monitor::MergeSparseRateLimitSnapshot(reversed, update);
+  const monitor::CodexQuotaWindows mergedWindows =
+      monitor::SelectCodexQuotaWindows(merged);
+  CHECK(merged.windows.size() == 2);
+  CHECK(mergedWindows.weekly && mergedWindows.weekly->remainingPercent == 64);
+  CHECK(mergedWindows.fiveHour && mergedWindows.fiveHour->remainingPercent == 22);
+  CHECK(!merged.sparseUpdate);
 }
 
 void TestSydneyDst() {
@@ -221,6 +290,12 @@ int Integration(const wchar_t* fakePath) {
   CHECK(context.last.windows[0].remainingPercent == 0);
   run(L"double", true, monitor::AppServerErrorKind::Protocol);
   CHECK(context.last.windows.size() == 2);
+  {
+    const monitor::CodexQuotaWindows windows =
+        monitor::SelectCodexQuotaWindows(context.last);
+    CHECK(windows.weekly && windows.weekly->remainingPercent == 30);
+    CHECK(windows.fiveHour && windows.fiveHour->remainingPercent == 55);
+  }
   run(L"unlimited", true, monitor::AppServerErrorKind::Protocol);
   CHECK(context.last.credits.unlimited);
   run(L"credits", true, monitor::AppServerErrorKind::Protocol);
@@ -278,14 +353,56 @@ int Benchmark(const wchar_t* fakePath) {
   return measured == 10 && errors.load() == 0 ? 0 : 4;
 }
 
+int LiveQuotaProbe() {
+  struct Context {
+    HANDLE event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    std::optional<monitor::RateLimitSnapshot> snapshot;
+    std::optional<monitor::AppServerError> error;
+  } context;
+  monitor::CodexAppServer server;
+  if (!server.Start([&](monitor::RateLimitSnapshot value) {
+        context.snapshot = std::move(value);
+        SetEvent(context.event);
+      }, [&](monitor::AppServerError value) {
+        context.error = std::move(value);
+        SetEvent(context.event);
+      })) {
+    if (context.event) CloseHandle(context.event);
+    return 2;
+  }
+  const DWORD wait = WaitForSingleObject(context.event, 15000);
+  server.Stop();
+  if (wait != WAIT_OBJECT_0 || !context.snapshot) {
+    if (context.error) std::wcerr << context.error->message << L'\n';
+    if (context.event) CloseHandle(context.event);
+    return 3;
+  }
+  const monitor::CodexQuotaWindows windows =
+      monitor::SelectCodexQuotaWindows(*context.snapshot);
+  auto printWindow = [](const wchar_t* name, const monitor::RateWindow* window) {
+    if (!window) {
+      std::wcout << name << L"=missing\n";
+      return;
+    }
+    std::wcout << name << L"_duration_mins=" << window->windowDurationMins << L'\n'
+               << name << L"_remaining_percent=" << window->remainingPercent << L'\n';
+  };
+  printWindow(L"weekly", windows.weekly);
+  printWindow(L"five_hour", windows.fiveHour);
+  if (context.event) CloseHandle(context.event);
+  return windows.weekly && windows.fiveHour ? 0 : 4;
+}
+
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
   if (argc >= 3 && std::wstring(argv[1]) == L"--integration") return Integration(argv[2]);
   if (argc >= 3 && std::wstring(argv[1]) == L"--benchmark") return Benchmark(argv[2]);
+  if (argc >= 2 && std::wstring(argv[1]) == L"--live-quota-probe") return LiveQuotaProbe();
   TestRemainingPercent();
   TestParsing();
   TestResetAndStale();
+  TestQuotaWindowSelection();
   TestSydneyDst();
   TestEnergyState();
   TestHudInteractions();

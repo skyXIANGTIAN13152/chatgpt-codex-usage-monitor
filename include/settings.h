@@ -6,6 +6,7 @@ namespace monitor {
 
 enum class IndicatorDisplayMode { ProgressOnly, EnergyOnly, Both };
 enum class ProgressDisplayMode { Bar, Ring };
+enum class QuotaDisplayMode { WeeklyAndFiveHour, WeeklyOnly };
 enum class HudSizeMode { Compact, Standard, Expanded };
 
 constexpr int kDefaultHudScalePercent = 80;
@@ -21,10 +22,10 @@ struct Settings {
   bool themeEnabled = true;
   IndicatorDisplayMode displayMode = IndicatorDisplayMode::Both;
   ProgressDisplayMode progressDisplayMode = ProgressDisplayMode::Bar;
+  QuotaDisplayMode quotaDisplayMode = QuotaDisplayMode::WeeklyAndFiveHour;
   HudSizeMode sizeMode = HudSizeMode::Compact;
   int scalePercent = kDefaultHudScalePercent;
   EnergyIndicatorConfig energy;
-  int selectedWindow = 0;
   bool debugLogging = false;
   std::vector<int> notificationThresholds{20, 10, 5, 0};
 };

@@ -59,6 +59,11 @@ Settings LoadSettings() {
                                              ProgressDisplayMode::Ring,
                                              ProgressDisplayMode::Bar);
   }
+  if (auto value = IntField(parsed.value, "quotaDisplayMode")) {
+    settings.quotaDisplayMode = ClampEnum(*value, QuotaDisplayMode::WeeklyAndFiveHour,
+                                          QuotaDisplayMode::WeeklyOnly,
+                                          QuotaDisplayMode::WeeklyAndFiveHour);
+  }
   if (auto value = IntField(parsed.value, "sizeMode")) {
     settings.sizeMode = ClampEnum(*value, HudSizeMode::Compact,
                                   HudSizeMode::Expanded, HudSizeMode::Standard);
@@ -77,7 +82,6 @@ Settings LoadSettings() {
   if (auto value = BoolField(parsed.value, "stoneAtZero")) settings.energy.stoneAtZero = *value;
   if (auto value = BoolField(parsed.value, "glow")) settings.energy.glow = *value;
   if (auto value = BoolField(parsed.value, "breathing")) settings.energy.breathing = *value;
-  if (auto value = IntField(parsed.value, "selectedWindow")) settings.selectedWindow = std::max(0, *value);
   if (auto value = BoolField(parsed.value, "debugLogging")) settings.debugLogging = *value;
   const int configVersion = IntField(parsed.value, "configVersion").value_or(1);
   if (configVersion < 2) settings.sizeMode = HudSizeMode::Compact;
@@ -91,7 +95,7 @@ bool SaveSettings(const Settings& settings) {
   std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
   if (!stream) return false;
   stream << "{\n"
-         << "  \"configVersion\": 3,\n"
+         << "  \"configVersion\": 4,\n"
          << "  \"x\": " << settings.x << ",\n"
          << "  \"y\": " << settings.y << ",\n"
          << "  \"alwaysOnTop\": " << (settings.alwaysOnTop ? "true" : "false") << ",\n"
@@ -100,6 +104,7 @@ bool SaveSettings(const Settings& settings) {
          << "  \"themeEnabled\": " << (settings.themeEnabled ? "true" : "false") << ",\n"
          << "  \"displayMode\": " << static_cast<int>(settings.displayMode) << ",\n"
          << "  \"progressDisplayMode\": " << static_cast<int>(settings.progressDisplayMode) << ",\n"
+         << "  \"quotaDisplayMode\": " << static_cast<int>(settings.quotaDisplayMode) << ",\n"
          << "  \"sizeMode\": " << static_cast<int>(settings.sizeMode) << ",\n"
          << "  \"scalePercent\": " << settings.scalePercent << ",\n"
          << "  \"warningThreshold\": " << settings.energy.warningThreshold << ",\n"
@@ -107,7 +112,6 @@ bool SaveSettings(const Settings& settings) {
          << "  \"stoneAtZero\": " << (settings.energy.stoneAtZero ? "true" : "false") << ",\n"
          << "  \"glow\": " << (settings.energy.glow ? "true" : "false") << ",\n"
          << "  \"breathing\": " << (settings.energy.breathing ? "true" : "false") << ",\n"
-         << "  \"selectedWindow\": " << settings.selectedWindow << ",\n"
          << "  \"debugLogging\": " << (settings.debugLogging ? "true" : "false") << "\n"
          << "}\n";
   stream.close();
