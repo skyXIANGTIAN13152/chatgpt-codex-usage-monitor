@@ -2,11 +2,12 @@
 
 中文说明 · [English README](README.en.md)
 
-这是一个 C++20 / 原生 Win32 的轻量 Windows HUD。它通过新的桌面快捷方式启动 Microsoft Store / MSIX 版 ChatGPT，同时从本机已登录的官方 Codex CLI App Server 读取 ChatGPT 账户中的 Codex 额度窗口。默认使用 80% 整体缩放的紧凑模式，约为 240×72；右键托盘菜单可按 5% 在 60%–140% 之间自由调整，且会同步缩放胸甲、能量灯、进度条/光能圆环、字体和粒子效果。额度形式可在“光能条”和“光能圆环”之间切换；圆环模式会采用更窄的紧凑布局。用户选择的尺寸和额度形式会写入配置并作为下次启动的默认值。ChatGPT 的有效顶层窗口全部关闭并持续 5 秒后，监视器自动退出；它不会提前常驻等待 ChatGPT，也不是开机常驻程序，不会安装服务。
+这是一个 C++20 / 原生 Win32 的轻量 Windows HUD。它通过新的桌面快捷方式启动 Microsoft Store / MSIX 版 ChatGPT，同时从本机已登录的官方 Codex CLI App Server 读取 ChatGPT 账户中的 Codex 额度窗口。默认使用 80% 整体缩放的紧凑模式，约为 240×72；右键托盘菜单可按 5% 在 60%–140% 之间自由调整，且会同步缩放胸甲、能量灯、进度条/光能圆环、字体和粒子效果。额度形式可在“光能条”和“光能圆环”之间切换：双圆环以深色外圈表示周剩余额度、亮色内圈表示 5 小时剩余额度；双进度条则以深色上条和亮色下条表达同一对应关系。也可以切换为“仅周额度”。用户选择的尺寸、额度形式和窗口模式会写入配置并作为下次启动的默认值。ChatGPT 的有效顶层窗口全部关闭并持续 5 秒后，监视器自动退出；它不会提前常驻等待 ChatGPT，也不是开机常驻程序，不会安装服务。
 
 ## 它显示什么
 
-- 主要/次要额度窗口的剩余百分比、重置倒计时和本地绝对时间；
+- 周额度与 5 小时额度各自的剩余百分比、重置倒计时和本地绝对时间；
+- 双圆环（周外圈、5H 内圈）、双进度条（周上条、5H 下条）以及仅周额度模式；
 - 多个 model-specific bucket（如官方接口提供）；
 - credits balance、plan type、最后一次成功更新时间/过期状态；
 - 状态：LIVE、WARNING、CRITICAL、STONE、STALE、OFFLINE、未登录、CLI 未安装等。
@@ -15,7 +16,7 @@
 
 ## 迪迦能量指示器主题
 
-默认同时显示精确进度条和能量指示器，也可以把额度进度条切换为围绕百分比的光能圆环。低于默认 50% 后，红灯亮相位直接显示用户指定的完整胸甲原图，不对灯、灯座或胸甲重新绘制，并随额度降低加速闪烁；暗相位仍保留同一镜片的酒红纹理。正常状态使用同一张胸甲，仅将中央灯区换成同源蓝色玻璃；0% 时胸甲、金属、灯体一起进入低饱和、低对比、哑光颗粒的石像状态。各状态切换时构图、比例和裁切保持一致。
+默认同时显示精确额度图形和能量指示器。双圆环中周额度使用较深的蓝紫外圈，5 小时额度使用较亮的青蓝内圈；双进度条保持相同的深色上条 / 亮色下条层级。每个窗口会依据自己的百分比独立转为深红或亮红，但圆环和进度条始终稳定不闪烁，只有胸灯参与闪烁。能量指示灯在双额度模式下跟随两者中更紧张的窗口；切换为仅周额度后只跟随周窗口。低于默认 50% 后，红灯亮相位直接显示用户指定的完整胸甲原图，不对灯、灯座或胸甲重新绘制，并随额度降低加速闪烁；暗相位仍保留同一镜片的酒红纹理。正常状态使用同一张胸甲，仅将中央灯区换成同源蓝色玻璃；任一当前显示的限制窗口达到 0% 时，胸甲、金属、灯体一起进入低饱和、低对比、哑光颗粒的石像状态。各状态切换时构图、比例和裁切保持一致。
 
 主题左侧直接内嵌并显示用户提供、且由用户明确确认拥有使用权的胸甲原图。红灯亮相位与该文件逐像素一致；蓝灯只把内置图像编辑生成的蓝色灯区柔边合回原图，暗相位只压暗原镜片，二者在中央灯区之外均保持主图像素不变；石像版本则统一处理整幅胸甲。运行时只进行等比缩放、定位、透明度和边缘淡化，能量条与文字状态动效由 Direct2D 实时绘制。
 
@@ -50,7 +51,7 @@ ChatGPTCodexUsageMonitor.exe --monitor <ChatGPTProcessId>
 ChatGPTCodexUsageMonitor.exe --debug
 ```
 
-HUD 点击空白处可立即刷新；拖动可保存位置；右下角齿轮或托盘右键可切换显示模式、HUD 尺寸、跟随 ChatGPT、能量主题、光晕、石化、闪烁阈值和闪烁风格。右下角横线或双击 HUD 会最小化到托盘，托盘左键恢复；这不会关闭 ChatGPT。手动“退出额度显示器”也不会关闭 ChatGPT。
+HUD 点击空白处可立即刷新；拖动可保存位置；右下角齿轮或托盘右键可切换双额度/仅周额度、光能条/光能圆环、显示模式、HUD 尺寸、跟随 ChatGPT、能量主题、光晕、石化、闪烁阈值和闪烁风格。右下角横线或双击 HUD 会最小化到托盘，托盘左键恢复；这不会关闭 ChatGPT。手动“退出额度显示器”也不会关闭 ChatGPT。
 
 ## 安装快捷方式和固定到任务栏
 
@@ -98,7 +99,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 程序以隐藏子进程启动当前官方 CLI 的 `codex app-server`，通过 stdin/stdout JSONL 完成 `initialize`/`initialized` 握手，调用 `account/rateLimits/read`，并监听 `account/rateLimits/updated`。默认 60 秒主动刷新；通知、用户点击、系统睡眠恢复和网络接口变化会触发即时刷新。失败后指数退避，最长 10 分钟，同一时间最多一个额度请求。
 
-解析字段包括 `rateLimits`、`rateLimitsByLimitId`、`limitId`、`limitName`、`primary`、`secondary`、`usedPercent`、`windowDurationMins`、`resetsAt`、`credits`、`hasCredits`、`unlimited`、`balance`、`planType`、`rateLimitReachedType` 和 `rateLimitResetCredits.availableCount`。字段缺失、新增、改序或部分 bucket 不可用不会导致崩溃。
+解析字段包括 `rateLimits`、`rateLimitsByLimitId`、`limitId`、`limitName`、`primary`、`secondary`、`usedPercent`、`windowDurationMins`、`resetsAt`、`credits`、`hasCredits`、`unlimited`、`balance`、`planType`、`rateLimitReachedType` 和 `rateLimitResetCredits.availableCount`。程序不依赖 `primary`/`secondary` 的顺序，而以 300 分钟识别 5 小时窗口、10,080 分钟识别周窗口，并优先配对同一个 Codex bucket。稀疏的 `account/rateLimits/updated` 通知会合并进完整快照，因此只更新一个窗口时不会让另一个图形消失。字段缺失、新增、改序或部分 bucket 不可用不会导致崩溃。
 
 如果当前官方接口不返回准确额度，程序显示“官方接口当前未提供此数据”/`DATA UNAVAILABLE`，并保留最后一次成功数据的时间；不会退回网页抓取、Cookie、私有 ChatGPT HTTP 接口、估算或伪造。
 

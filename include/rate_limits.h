@@ -40,12 +40,28 @@ struct RateLimitSnapshot {
   std::string planType;
   std::string rateLimitReachedType;
   DataStatus status = DataStatus::DataUnavailable;
+  bool sparseUpdate = false;
   std::chrono::system_clock::time_point receivedAt{};
   std::chrono::system_clock::time_point lastSuccessAt{};
   std::string errorMessage;
 };
 
+enum class QuotaWindowKind {
+  FiveHour,
+  Weekly,
+  Other,
+};
+
+struct CodexQuotaWindows {
+  const RateWindow* weekly = nullptr;
+  const RateWindow* fiveHour = nullptr;
+};
+
 double RemainingPercent(double usedPercent);
+QuotaWindowKind ClassifyQuotaWindow(const RateWindow& window);
+CodexQuotaWindows SelectCodexQuotaWindows(const RateLimitSnapshot& snapshot);
+RateLimitSnapshot MergeSparseRateLimitSnapshot(const RateLimitSnapshot& base,
+                                               const RateLimitSnapshot& update);
 std::optional<std::chrono::system_clock::time_point> ParseResetTime(const JsonValue& value);
 std::optional<RateLimitSnapshot> ParseRateLimitMessage(std::string_view json, std::string* error);
 bool IsSnapshotStale(const RateLimitSnapshot& snapshot,
@@ -57,4 +73,3 @@ std::wstring FormatResetCountdown(std::chrono::system_clock::time_point value,
 std::wstring DataStatusText(DataStatus status);
 
 }  // namespace monitor
-

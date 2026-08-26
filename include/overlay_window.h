@@ -50,7 +50,10 @@ class OverlayWindow {
   void ClampToWorkArea(RECT* rect) const;
   void SaveWindowPosition();
   void ResizeForMode();
-  const RateWindow* SelectedWindow() const;
+  CodexQuotaWindows QuotaWindows() const;
+  const RateWindow* PrimaryQuotaWindow() const;
+  const RateWindow* LimitingQuotaWindow() const;
+  bool ShowsFiveHourQuota() const;
   void NotifyThresholds(double previous, double current);
   void OpenUsagePage();
   void OpenChatGpt();
@@ -99,7 +102,7 @@ enum TrayCommand : UINT {
   kTrayOpenChatGpt,
   kTrayDisplayMode,
   kTrayProgressDisplayMode,
-  kTrayNextWindow,
+  kTrayQuotaDisplayMode,
   kTrayFollow,
   kTrayTheme,
   kTrayGlow,
