@@ -57,8 +57,7 @@ if not exist "%BUILT_EXE%" set "BUILT_EXE=%BUILD_DIR%\ChatGPTCodexUsageMonitor.e
 copy /y "%BUILT_EXE%" "%DIST_DIR%\ChatGPTCodexUsageMonitor.exe" >nul
 copy /y "%PROJECT_ROOT%\scripts\install-shortcut.ps1" "%DIST_DIR%\install-shortcut.ps1" >nul
 copy /y "%PROJECT_ROOT%\scripts\uninstall-shortcut.ps1" "%DIST_DIR%\uninstall-shortcut.ps1" >nul
-copy /y "%PROJECT_ROOT%\README.md" "%DIST_DIR%\README.txt" >nul
-copy /y "%PROJECT_ROOT%\README.en.md" "%DIST_DIR%\README.en.txt" >nul
+copy /y "%PROJECT_ROOT%\README.en.md" "%DIST_DIR%\README.txt" >nul
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%\scripts\fetch-official-codex-cli.ps1" -DestinationDirectory "%DIST_DIR%"
 if errorlevel 1 exit /b 1
 

@@ -6,9 +6,9 @@ namespace monitor {
 namespace {
 
 const wchar_t* HudSizeModeLabel(HudSizeMode mode) {
-  if (mode == HudSizeMode::Compact) return L"信息布局：紧凑";
-  if (mode == HudSizeMode::Expanded) return L"信息布局：展开";
-  return L"信息布局：标准";
+  if (mode == HudSizeMode::Compact) return L"Information layout: Compact";
+  if (mode == HudSizeMode::Expanded) return L"Information layout: Expanded";
+  return L"Information layout: Standard";
 }
 
 }  // namespace
@@ -59,11 +59,11 @@ void OverlayWindow::UpdateTrayTooltip() {
   data.hWnd = hwnd_;
   data.uID = 1;
   data.uFlags = NIF_TIP;
-  std::wstring tip = L"Codex 额度 · " + DataStatusText(displayStatus_);
+  std::wstring tip = L"Codex quota · " + DataStatusText(displayStatus_);
   const CodexQuotaWindows windows = QuotaWindows();
   if (const RateWindow* primary = windows.weekly ? windows.weekly : PrimaryQuotaWindow()) {
     wchar_t percent[32]{};
-    const wchar_t* label = windows.weekly ? L"周" : L"当前";
+    const wchar_t* label = windows.weekly ? L"Weekly" : L"Current";
     swprintf_s(percent, L" · %s %.0f%%", label, primary->remainingPercent);
     tip += percent;
   }
@@ -83,49 +83,56 @@ void OverlayWindow::UpdateTrayTooltip() {
 void OverlayWindow::ShowTrayMenu(POINT point) {
   HMENU menu = CreatePopupMenu();
   AppendMenuW(menu, MF_STRING, kTrayShowHide,
-              hidden_ ? L"恢复额度窗口" : L"最小化到托盘");
-  AppendMenuW(menu, MF_STRING, kTrayRefresh, L"立即刷新");
-  AppendMenuW(menu, MF_STRING, kTrayUsage, L"打开 Codex Usage 页面");
-  AppendMenuW(menu, MF_STRING, kTrayOpenChatGpt, L"打开 ChatGPT");
+              hidden_ ? L"Restore quota window" : L"Minimize to tray");
+  AppendMenuW(menu, MF_STRING, kTrayRefresh, L"Refresh now");
+  AppendMenuW(menu, MF_STRING, kTrayUsage, L"Open Codex Usage page");
+  AppendMenuW(menu, MF_STRING, kTrayOpenChatGpt, L"Open ChatGPT");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"设置");
+  AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"Settings");
   AppendMenuW(menu, MF_STRING | (settings_.themeEnabled ? MF_CHECKED : 0), kTrayTheme,
-              L"迪迦能量指示器主题");
-  const wchar_t* display = settings_.displayMode == IndicatorDisplayMode::Both ? L"显示：进度条 + 能量指示器" :
-                           settings_.displayMode == IndicatorDisplayMode::ProgressOnly ? L"显示：仅进度条" :
-                           L"显示：仅能量指示器";
+              L"Tiga energy-indicator theme");
+  const wchar_t* display = settings_.displayMode == IndicatorDisplayMode::Both
+      ? L"Display: Quota visual + energy indicator"
+      : settings_.displayMode == IndicatorDisplayMode::ProgressOnly
+          ? L"Display: Quota visual only"
+          : L"Display: Energy indicator only";
   AppendMenuW(menu, MF_STRING, kTrayDisplayMode, display);
   const wchar_t* progressDisplay = settings_.progressDisplayMode == ProgressDisplayMode::Ring
-      ? L"额度形式：光能圆环"
-      : L"额度形式：光能条";
+      ? L"Quota visual: Light-energy rings"
+      : L"Quota visual: Light-energy bars";
   AppendMenuW(menu, MF_STRING, kTrayProgressDisplayMode, progressDisplay);
   const wchar_t* quotaDisplay =
       settings_.quotaDisplayMode == QuotaDisplayMode::WeeklyAndFiveHour
-          ? L"额度窗口：周 + 5小时"
-          : L"额度窗口：仅周额度";
+          ? L"Quota windows: Weekly + 5 hours"
+          : L"Quota windows: Weekly only";
   AppendMenuW(menu, MF_STRING, kTrayQuotaDisplayMode, quotaDisplay);
   AppendMenuW(menu, MF_STRING | (settings_.followChatGpt ? MF_CHECKED : 0), kTrayFollow,
-              L"跟随 ChatGPT 窗口");
-  AppendMenuW(menu, MF_STRING | (settings_.energy.glow ? MF_CHECKED : 0), kTrayGlow, L"轻微光晕");
-  AppendMenuW(menu, MF_STRING | (settings_.energy.stoneAtZero ? MF_CHECKED : 0), kTrayStone, L"0% 石化效果");
-  const wchar_t* style = settings_.energy.blinkStyle == BlinkStyle::Gentle ? L"闪烁风格：温和" :
-                         settings_.energy.blinkStyle == BlinkStyle::Standard ? L"闪烁风格：标准" :
-                         L"闪烁风格：激进";
+              L"Follow the ChatGPT window");
+  AppendMenuW(menu, MF_STRING | (settings_.energy.glow ? MF_CHECKED : 0),
+              kTrayGlow, L"Subtle glow");
+  AppendMenuW(menu, MF_STRING | (settings_.energy.stoneAtZero ? MF_CHECKED : 0),
+              kTrayStone, L"Stone effect at 0%");
+  const wchar_t* style = settings_.energy.blinkStyle == BlinkStyle::Gentle
+      ? L"Blink style: Gentle"
+      : settings_.energy.blinkStyle == BlinkStyle::Standard
+          ? L"Blink style: Standard"
+          : L"Blink style: Intense";
   AppendMenuW(menu, MF_STRING, kTrayBlinkStyle, style);
   wchar_t threshold[64]{};
-  swprintf_s(threshold, L"闪烁阈值：%d%%（左减 / 右加）", settings_.energy.warningThreshold);
+  swprintf_s(threshold, L"Blink threshold: %d%% (left - / right +)",
+             settings_.energy.warningThreshold);
   AppendMenuW(menu, MF_STRING, kTrayThresholdDown, threshold);
-  AppendMenuW(menu, MF_STRING, kTrayThresholdUp, L"提高闪烁阈值 5%");
+  AppendMenuW(menu, MF_STRING, kTrayThresholdUp, L"Increase blink threshold by 5%");
   wchar_t scaleLabel[64]{};
-  swprintf_s(scaleLabel, L"整体缩放：%d%%", settings_.scalePercent);
+  swprintf_s(scaleLabel, L"Overall scale: %d%%", settings_.scalePercent);
   AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, scaleLabel);
-  AppendMenuW(menu, MF_STRING, kTrayScaleDown, L"整体缩小 5%");
-  AppendMenuW(menu, MF_STRING, kTrayScaleUp, L"整体放大 5%");
-  AppendMenuW(menu, MF_STRING, kTrayScaleReset, L"恢复默认整体大小");
+  AppendMenuW(menu, MF_STRING, kTrayScaleDown, L"Reduce overall size by 5%");
+  AppendMenuW(menu, MF_STRING, kTrayScaleUp, L"Increase overall size by 5%");
+  AppendMenuW(menu, MF_STRING, kTrayScaleReset, L"Restore default overall size");
   AppendMenuW(menu, MF_STRING, kTraySizeMode, HudSizeModeLabel(settings_.sizeMode));
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, kTrayAbout, L"关于");
-  AppendMenuW(menu, MF_STRING, kTrayExit, L"退出额度显示器");
+  AppendMenuW(menu, MF_STRING, kTrayAbout, L"About");
+  AppendMenuW(menu, MF_STRING, kTrayExit, L"Exit usage monitor");
   SetForegroundWindow(hwnd_);
   TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, point.x, point.y, 0, hwnd_, nullptr);
   DestroyMenu(menu);

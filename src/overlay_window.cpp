@@ -58,12 +58,12 @@ float HudScale(int percent) {
 }
 
 std::wstring WindowLabel(const RateWindow& window) {
-  if (ClassifyQuotaWindow(window) == QuotaWindowKind::Weekly) return L"周额度";
-  if (ClassifyQuotaWindow(window) == QuotaWindowKind::FiveHour) return L"5小时额度";
+  if (ClassifyQuotaWindow(window) == QuotaWindowKind::Weekly) return L"Weekly quota";
+  if (ClassifyQuotaWindow(window) == QuotaWindowKind::FiveHour) return L"5-hour quota";
   if (!window.bucketName.empty() && window.bucketName != "codex") return Utf8ToWide(window.bucketName);
-  if (window.windowDurationMins >= 24 * 60) return L"多日额度";
-  if (window.windowDurationMins >= 60) return L"小时额度";
-  return L"主要额度";
+  if (window.windowDurationMins >= 24 * 60) return L"Multi-day quota";
+  if (window.windowDurationMins >= 60) return L"Hourly quota";
+  return L"Primary quota";
 }
 
 }  // namespace
@@ -299,7 +299,7 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
         KillTimer(hwnd_, kRequestTimeoutTimer);
         if (appServer_.RequestInFlight()) {
           appServer_.MarkRequestTimedOut();
-          ApplyServerError({AppServerErrorKind::Timeout, L"读取 Codex 额度超时。"});
+          ApplyServerError({AppServerErrorKind::Timeout, L"Timed out while reading the Codex quota."});
         }
       } else if (wparam == kLifecycleDebounceTimer) {
         KillTimer(hwnd_, kLifecycleDebounceTimer);
@@ -1354,7 +1354,7 @@ void OverlayWindow::Paint() {
         textMedium_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
         textMedium_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
       }
-      const std::wstring weeklyLine = L"周 " + percentText(weeklyWindow) +
+      const std::wstring weeklyLine = L"WEEK " + percentText(weeklyWindow) +
                                       L" · " + resetCountdown(weeklyWindow);
       const std::wstring fiveHourLine = L"5H " + percentText(fiveHourWindow) +
                                         L" · " + resetCountdown(fiveHourWindow);
@@ -1391,7 +1391,7 @@ void OverlayWindow::Paint() {
                    weeklyWindow, false);
       drawQuotaBar(D2D1::RectF(pairBarLeft, 28.0f, pairBarRight, 40.0f),
                    fiveHourWindow, true);
-      drawQuotaLabel(L"周", D2D1::RectF(contentLeft, 8.0f, pairBarLeft - 3.0f, 24.0f),
+      drawQuotaLabel(L"W", D2D1::RectF(contentLeft, 8.0f, pairBarLeft - 3.0f, 24.0f),
                      weeklyWindow, false, DWRITE_TEXT_ALIGNMENT_LEADING);
       drawQuotaLabel(L"5H", D2D1::RectF(contentLeft, 26.0f, pairBarLeft - 3.0f, 42.0f),
                      fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -1449,14 +1449,14 @@ void OverlayWindow::Paint() {
              secondaryText ? static_cast<ID2D1Brush*>(secondaryText)
                            : static_cast<ID2D1Brush*>(muted));
   } else if (!ringProgress) {
-    const std::wstring countdown = L"周 " + resetCountdown(weeklyWindow) +
+    const std::wstring countdown = L"WEEK " + resetCountdown(weeklyWindow) +
                                    L"  ·  5H " + resetCountdown(fiveHourWindow);
     if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
     drawIonText(countdown, textSmall_,
                 D2D1::RectF(contentLeft, 44.0f, rightEdge, 61.0f),
                 0.64f, 0xd517u + static_cast<UINT32>(countdown.size()), 2);
     if (settings_.sizeMode != HudSizeMode::Compact) {
-      const std::wstring absolute = L"周 " + resetAbsolute(weeklyWindow) +
+      const std::wstring absolute = L"WEEK " + resetAbsolute(weeklyWindow) +
                                     L"  ·  5H " + resetAbsolute(fiveHourWindow);
       if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
       drawText(absolute, textSmall_,
@@ -1517,8 +1517,8 @@ void OverlayWindow::Paint() {
 
   if (settings_.sizeMode == HudSizeMode::Expanded && dualQuota) {
     const std::wstring detail = settings_.progressDisplayMode == ProgressDisplayMode::Ring
-        ? L"深色外圈：周额度  ·  亮色内圈：5小时额度"
-        : L"深色上条：周额度  ·  亮色下条：5小时额度";
+        ? L"Outer: weekly  ·  Inner: 5-hour"
+        : L"Upper: weekly  ·  Lower: 5-hour";
     if (secondaryText) secondaryText->SetOpacity(stonePanel ? 0.78f : 0.94f);
     drawText(detail, textSmall_, D2D1::RectF(contentLeft, size.height - 25,
                                              rightEdge - 55, size.height - 7),
@@ -1771,16 +1771,16 @@ std::wstring OverlayWindow::CurrentStatusLine() const {
     std::wstring value = DataStatusText(displayStatus_);
     if (settings_.sizeMode != HudSizeMode::Compact && snapshot_ &&
         snapshot_->lastSuccessAt.time_since_epoch().count() != 0) {
-      value += L" · 更新 " + FormatLocalResetTime(snapshot_->lastSuccessAt);
+      value += L" · UPDATED " + FormatLocalResetTime(snapshot_->lastSuccessAt);
     }
     return value;
   }
   if (demoMode_) {
     return settings_.sizeMode == HudSizeMode::Compact
-        ? (ShowsFiveHourQuota() ? L"DEMO · 示例数据 · 周+5H"
-                                : L"DEMO · 示例数据 · 仅周")
-        : (ShowsFiveHourQuota() ? L"DEMO · 示例数据  周额度 + 5小时额度"
-                                : L"DEMO · 示例数据  仅周额度");
+        ? (ShowsFiveHourQuota() ? L"DEMO · SAMPLE DATA · WEEK+5H"
+                                : L"DEMO · SAMPLE DATA · WEEKLY")
+        : (ShowsFiveHourQuota() ? L"DEMO · SAMPLE DATA  WEEKLY + 5-HOUR"
+                                : L"DEMO · SAMPLE DATA  WEEKLY ONLY");
   }
   const RateWindow* window = LimitingQuotaWindow();
   if (!window) return L"DATA UNAVAILABLE";
@@ -1790,17 +1790,17 @@ std::wstring OverlayWindow::CurrentStatusLine() const {
     else if (window->remainingPercent < 10) state = L"CRITICAL";
     else if (window->remainingPercent <= 30) state = L"WARNING";
     else state = L"LIVE";
-    state += ShowsFiveHourQuota() ? L" · 周+5H" : L" · " + WindowLabel(*window);
+    state += ShowsFiveHourQuota() ? L" · WEEK+5H" : L" · " + WindowLabel(*window);
     if (snapshot_ && !snapshot_->planType.empty()) {
       state += L" · " + Utf8ToWide(snapshot_->planType);
     }
     return state;
   }
-  if (window->remainingPercent <= 0) state = L"STONE · 额度耗尽";
-  else if (window->remainingPercent < 10) state = L"CRITICAL · 严重";
-  else if (window->remainingPercent <= 30) state = L"WARNING · 额度不足";
+  if (window->remainingPercent <= 0) state = L"STONE · QUOTA DEPLETED";
+  else if (window->remainingPercent < 10) state = L"CRITICAL · LOW QUOTA";
+  else if (window->remainingPercent <= 30) state = L"WARNING · QUOTA LOW";
   else state = L"LIVE · READY";
-  state += ShowsFiveHourQuota() ? L"  周额度 + 5小时额度" : L"  " + WindowLabel(*window);
+  state += ShowsFiveHourQuota() ? L"  WEEKLY + 5-HOUR" : L"  " + WindowLabel(*window);
   if (snapshot_ && !snapshot_->planType.empty()) state += L" · " + Utf8ToWide(snapshot_->planType);
   if (snapshot_ && snapshot_->credits.balance) {
     wchar_t credits[48]{};
@@ -1822,9 +1822,14 @@ void OverlayWindow::NotifyThresholds(double previous, double current) {
       data.hWnd = hwnd_;
       data.uID = 1;
       data.uFlags = NIF_INFO;
-      wcscpy_s(data.szInfoTitle, L"Codex 额度提醒");
-      if (threshold == 0) wcscpy_s(data.szInfo, L"额度已耗尽，能量指示器已进入石化状态。");
-      else swprintf_s(data.szInfo, L"当前限制窗口剩余已降至 %.0f%%。", current);
+      wcscpy_s(data.szInfoTitle, L"Codex Quota Alert");
+      if (threshold == 0) {
+        wcscpy_s(data.szInfo,
+                 L"The quota is depleted and the energy indicator has entered its stone state.");
+      } else {
+        swprintf_s(data.szInfo,
+                   L"The limiting quota window has dropped to %.0f%% remaining.", current);
+      }
       data.dwInfoFlags = NIIF_WARNING;
       Shell_NotifyIconW(NIM_MODIFY, &data);
     }
@@ -1907,10 +1912,10 @@ void OverlayWindow::OnTrayCommand(UINT command) {
     case kTrayAbout:
       MessageBoxW(hwnd_,
           L"ChatGPT Codex Usage Monitor 1.0.4\n\n"
-          L"深色外圈/上条显示周额度，亮色内圈/下条显示 5 小时额度；可切换为仅周额度。\n"
-          L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
-          L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
-          L"关于", MB_OK | MB_ICONINFORMATION);
+          L"The darker outer ring / upper bar shows the weekly quota; the brighter inner ring / lower bar shows the 5-hour quota. Weekly-only mode is also available.\n"
+          L"Quota data comes from the official Codex App Server. The monitor displays returned percentages and does not invent token counts.\n"
+          L"The chest background uses owner-provided artwork; the indicator and effects are rendered with Direct2D.",
+          L"About", MB_OK | MB_ICONINFORMATION);
       return;
     case kTrayExit:
       DestroyWindow(hwnd_);

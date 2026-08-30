@@ -37,7 +37,7 @@ std::wstring ErrorText(DWORD code) {
   const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
                       FORMAT_MESSAGE_IGNORE_INSERTS;
   FormatMessageW(flags, nullptr, code, 0, reinterpret_cast<wchar_t*>(&buffer), 0, nullptr);
-  std::wstring text = buffer ? buffer : L"未知错误";
+  std::wstring text = buffer ? buffer : L"Unknown error";
   if (buffer) LocalFree(buffer);
   while (!text.empty() && (text.back() == L'\r' || text.back() == L'\n' || text.back() == L' ')) {
     text.pop_back();
@@ -91,7 +91,8 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
   errorCallback_ = std::move(errorCallback);
   auto executable = LocateCodexExecutable();
   if (!executable) {
-    ReportError(AppServerErrorKind::CliMissing, L"未找到可执行的官方 Codex CLI。请安装并登录 Codex CLI。");
+    ReportError(AppServerErrorKind::CliMissing,
+                L"The official Codex CLI executable was not found. Install and sign in to Codex CLI.");
     return false;
   }
   executablePath_ = *executable;
@@ -105,7 +106,8 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
     SafeCloseHandle(stdinWrite_);
     SafeCloseHandle(stdoutRead_);
     SafeCloseHandle(stdoutWrite);
-    ReportError(AppServerErrorKind::LaunchFailed, L"无法创建 Codex App Server 通信管道。");
+    ReportError(AppServerErrorKind::LaunchFailed,
+                L"Unable to create the Codex App Server communication pipes.");
     return false;
   }
   SetHandleInformation(stdinWrite_, HANDLE_FLAG_INHERIT, 0);
@@ -141,7 +143,7 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
     SafeCloseHandle(stdinWrite_);
     SafeCloseHandle(stdoutRead_);
     ReportError(AppServerErrorKind::LaunchFailed,
-                L"Codex CLI 无法启动：" + ErrorText(launchError));
+                L"Codex CLI could not be launched: " + ErrorText(launchError));
     return false;
   }
   process_ = processInfo.hProcess;
@@ -150,7 +152,8 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
   readerThread_ = CreateThread(nullptr, 0, ReaderThreadEntry, this, 0, nullptr);
   if (!readerThread_) {
     Stop();
-    ReportError(AppServerErrorKind::LaunchFailed, L"无法启动 App Server 读取线程。");
+    ReportError(AppServerErrorKind::LaunchFailed,
+                L"Unable to start the App Server reader thread.");
     return false;
   }
 
@@ -159,7 +162,8 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
       "\"name\":\"chatgpt_codex_usage_monitor\","
       "\"title\":\"ChatGPT Codex Usage Monitor\",\"version\":\"1.0.4\"}}}";
   if (!WriteLine(initialize) || !WriteLine("{\"method\":\"initialized\",\"params\":{}}")) {
-    ReportError(AppServerErrorKind::Protocol, L"无法发送 App Server 初始化消息。");
+    ReportError(AppServerErrorKind::Protocol,
+                L"Unable to send the App Server initialization message.");
     Stop();
     return false;
   }
@@ -261,12 +265,13 @@ DWORD CodexAppServer::ReaderLoop() {
     }
     if (pending.size() > 4 * 1024 * 1024) {
       pending.clear();
-      ReportError(AppServerErrorKind::Protocol, L"App Server 消息超过安全大小限制。");
+      ReportError(AppServerErrorKind::Protocol,
+                  L"The App Server message exceeded the safety size limit.");
     }
   }
   if (!stopping_.load()) {
     requestInFlight_.store(false);
-    ReportError(AppServerErrorKind::Closed, L"Codex App Server 连接已关闭。");
+    ReportError(AppServerErrorKind::Closed, L"The Codex App Server connection was closed.");
   }
   return 0;
 }
@@ -301,16 +306,19 @@ void CodexAppServer::HandleLine(std::string_view line) {
       return value;
     }();
     if (code == 401 || code == 403 || lower.find(L"unauthorized") != std::wstring::npos) {
-      ReportError(AppServerErrorKind::Unauthorized, L"Codex 尚未登录或登录已过期。");
+      ReportError(AppServerErrorKind::Unauthorized,
+                  L"Codex is not signed in or the session has expired.");
     } else if (code == 429 || lower.find(L"rate") != std::wstring::npos) {
-      ReportError(AppServerErrorKind::RateLimited, L"额度接口暂时限流（429）。");
+      ReportError(AppServerErrorKind::RateLimited,
+                  L"The quota interface is temporarily rate-limited (429).");
     } else if (lower.find(L"network") != std::wstring::npos ||
                lower.find(L"offline") != std::wstring::npos ||
                lower.find(L"connect") != std::wstring::npos ||
                lower.find(L"dns") != std::wstring::npos) {
-      ReportError(AppServerErrorKind::Network, L"网络不可用，无法更新 Codex 额度。");
+      ReportError(AppServerErrorKind::Network,
+                  L"The network is unavailable, so the Codex quota cannot be updated.");
     } else {
-      ReportError(AppServerErrorKind::Server, L"额度接口返回错误：" + wide);
+      ReportError(AppServerErrorKind::Server, L"The quota interface returned an error: " + wide);
     }
     return;
   }
@@ -319,7 +327,9 @@ void CodexAppServer::HandleLine(std::string_view line) {
     const JsonValue* params = envelope.value.Find("params");
     if (params) {
       const JsonValue* auth = params->Find("authMode");
-      if (auth && auth->IsNull()) ReportError(AppServerErrorKind::NotLoggedIn, L"Codex 尚未登录。");
+      if (auth && auth->IsNull()) {
+        ReportError(AppServerErrorKind::NotLoggedIn, L"Codex is not signed in.");
+      }
     }
     return;
   }
@@ -335,7 +345,8 @@ void CodexAppServer::HandleLine(std::string_view line) {
       if (snapshotCallback_) snapshotCallback_(std::move(*snapshot));
     } else {
       ReportError(AppServerErrorKind::Protocol,
-                  L"官方接口当前未提供可显示的额度数据：" + Utf8ToWide(parseError));
+                  L"The official interface did not return displayable quota data: " +
+                      Utf8ToWide(parseError));
     }
     return;
   }
@@ -345,7 +356,7 @@ void CodexAppServer::HandleLine(std::string_view line) {
     const JsonValue* account = result->Find("account");
     const auto needsAuth = result->Find("requiresOpenaiAuth")->AsBool();
     if (account && account->IsNull() && needsAuth && *needsAuth) {
-      ReportError(AppServerErrorKind::NotLoggedIn, L"Codex 尚未登录。");
+      ReportError(AppServerErrorKind::NotLoggedIn, L"Codex is not signed in.");
     }
   }
 }

@@ -38,13 +38,13 @@ $noticePath = Join-Path $cacheDirectory 'NOTICE'
 New-Item -ItemType Directory -Force -Path $cacheDirectory, $DestinationDirectory | Out-Null
 
 if (-not (Test-Path -LiteralPath $archivePath)) {
-    Write-Host "正在从 OpenAI 官方 GitHub Release 下载 Codex CLI $version……"
+    Write-Host "Downloading Codex CLI $version from the official OpenAI GitHub Release..."
     Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $archivePath
 }
 
 $actualArchiveHash = Get-Sha256 $archivePath
 if ($actualArchiveHash -ne $archiveSha256) {
-    throw "Codex CLI 压缩包校验失败。实际 SHA-256：$actualArchiveHash"
+    throw "Codex CLI archive verification failed. Actual SHA-256: $actualArchiveHash"
 }
 
 if (-not (Test-Path -LiteralPath $extractedPath)) {
@@ -53,7 +53,7 @@ if (-not (Test-Path -LiteralPath $extractedPath)) {
 
 $actualBinaryHash = Get-Sha256 $extractedPath
 if ($actualBinaryHash -ne $binarySha256) {
-    throw "Codex CLI 可执行文件校验失败。实际 SHA-256：$actualBinaryHash"
+    throw "Codex CLI executable verification failed. Actual SHA-256: $actualBinaryHash"
 }
 
 Copy-Item -LiteralPath $extractedPath -Destination (Join-Path $DestinationDirectory 'codex.exe') -Force
@@ -67,9 +67,9 @@ foreach ($legalFile in @(
     }
     $actualLegalHash = Get-Sha256 $legalFile.Path
     if ($actualLegalHash -ne $legalFile.Hash) {
-        throw "Codex CLI 许可证文件校验失败：$($legalFile.Output)"
+        throw "Codex CLI legal-file verification failed: $($legalFile.Output)"
     }
     Copy-Item -LiteralPath $legalFile.Path -Destination (Join-Path $DestinationDirectory $legalFile.Output) -Force
 }
 
-Write-Host "已打包官方 Codex CLI $version（SHA-256 已核对）。"
+Write-Host "Packaged the official Codex CLI $version after SHA-256 verification."

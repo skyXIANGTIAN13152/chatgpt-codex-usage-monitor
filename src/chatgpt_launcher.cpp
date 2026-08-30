@@ -9,7 +9,7 @@ std::optional<ChatGptInstance> ActivateChatGpt(const ChatGptApplication& app,
   HRESULT hr = CoCreateInstance(CLSID_ApplicationActivationManager, nullptr,
                                 CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&manager));
   if (FAILED(hr)) {
-    if (error) *error = L"无法创建 Windows 应用启动管理器。";
+    if (error) *error = L"Unable to create the Windows application activation manager.";
     return std::nullopt;
   }
   DWORD pid = 0;
@@ -18,7 +18,7 @@ std::optional<ChatGptInstance> ActivateChatGpt(const ChatGptApplication& app,
   if (FAILED(hr) || !pid) {
     if (error) {
       wchar_t buffer[128]{};
-      swprintf_s(buffer, L"启动 ChatGPT 失败（HRESULT 0x%08X）。", static_cast<unsigned>(hr));
+      swprintf_s(buffer, L"Failed to launch ChatGPT (HRESULT 0x%08X).", static_cast<unsigned>(hr));
       *error = buffer;
     }
     return std::nullopt;

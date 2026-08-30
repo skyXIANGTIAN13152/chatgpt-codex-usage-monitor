@@ -1,6 +1,4 @@
-# ChatGPT Codex Usage Monitor
-
-[中文说明](README.md) · English
+# ChatGPT Codex Usage Monitor — English Edition
 
 An unofficial, lightweight Windows HUD for showing Codex usage windows alongside the ChatGPT desktop app. It is written in C++20 with native Win32 and Direct2D. The monitor follows the ChatGPT desktop window, reads rate-limit data from the locally installed official Codex CLI App Server, and exits after all eligible ChatGPT windows have been closed for five seconds. The default is an 80% compact layout (about 240×72); the tray menu provides 5% steps from 60% to 140% and scales the chest, energy lens, bars/rings, typography, and ion particles together. In dual-quota mode, a deeper outer ring represents weekly remaining usage and a brighter inner ring represents the five-hour window; bar mode uses the same mapping as upper and lower bars. A weekly-only option is also available. The selected size, visual form, and quota mode are saved and reused as the next launch defaults.
 

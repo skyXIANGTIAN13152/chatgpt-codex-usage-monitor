@@ -24,19 +24,19 @@ VS_VERSION_INFO VERSIONINFO
 BEGIN
   BLOCK "StringFileInfo"
   BEGIN
-    BLOCK "080404b0"
+    BLOCK "040904b0"
     BEGIN
       VALUE "CompanyName", "Open-source local utility"
-      VALUE "FileDescription", "ChatGPT Codex Usage Monitor"
+      VALUE "FileDescription", "ChatGPT Codex Usage Monitor - English Edition"
       VALUE "FileVersion", "1.0.4"
       VALUE "InternalName", "ChatGPTCodexUsageMonitor"
       VALUE "OriginalFilename", "ChatGPTCodexUsageMonitor.exe"
-      VALUE "ProductName", "ChatGPT Codex Usage Monitor"
+      VALUE "ProductName", "ChatGPT Codex Usage Monitor - English Edition"
       VALUE "ProductVersion", "1.0.4"
     END
   END
   BLOCK "VarFileInfo"
   BEGIN
-    VALUE "Translation", 0x0804, 1200
+    VALUE "Translation", 0x0409, 1200
   END
 END

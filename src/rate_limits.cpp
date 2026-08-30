@@ -385,29 +385,29 @@ std::wstring FormatLocalResetTime(std::chrono::system_clock::time_point value) {
 std::wstring FormatResetCountdown(std::chrono::system_clock::time_point value,
                                   std::chrono::system_clock::time_point now) {
   auto total = std::chrono::duration_cast<std::chrono::minutes>(value - now).count();
-  if (total <= 0) return L"即将重置";
+  if (total <= 0) return L"Resetting soon";
   const auto days = total / (24 * 60);
   total %= 24 * 60;
   const auto hours = total / 60;
   const auto minutes = total % 60;
   wchar_t buffer[48]{};
-  if (days > 0) swprintf_s(buffer, L"%lld天%lld时", static_cast<long long>(days),
+  if (days > 0) swprintf_s(buffer, L"%lldd %lldh", static_cast<long long>(days),
                             static_cast<long long>(hours));
-  else if (hours > 0) swprintf_s(buffer, L"%lld时%lld分", static_cast<long long>(hours),
+  else if (hours > 0) swprintf_s(buffer, L"%lldh %lldm", static_cast<long long>(hours),
                                  static_cast<long long>(minutes));
-  else swprintf_s(buffer, L"%lld分钟", static_cast<long long>(minutes));
+  else swprintf_s(buffer, L"%lld min", static_cast<long long>(minutes));
   return buffer;
 }
 
 std::wstring DataStatusText(DataStatus status) {
   switch (status) {
-    case DataStatus::Connecting: return L"正在连接 CODEX";
+    case DataStatus::Connecting: return L"CONNECTING TO CODEX";
     case DataStatus::Live: return L"LIVE";
-    case DataStatus::Stale: return L"STALE · 数据过期";
+    case DataStatus::Stale: return L"STALE · DATA OUTDATED";
     case DataStatus::Offline: return L"OFFLINE";
-    case DataStatus::CliMissing: return L"CODEX CLI 未安装";
-    case DataStatus::NotLoggedIn: return L"CODEX 尚未登录";
-    case DataStatus::NetworkUnavailable: return L"网络不可用";
+    case DataStatus::CliMissing: return L"CODEX CLI NOT INSTALLED";
+    case DataStatus::NotLoggedIn: return L"CODEX NOT SIGNED IN";
+    case DataStatus::NetworkUnavailable: return L"NETWORK UNAVAILABLE";
     case DataStatus::DataUnavailable: return L"DATA UNAVAILABLE";
   }
   return L"DATA UNAVAILABLE";
