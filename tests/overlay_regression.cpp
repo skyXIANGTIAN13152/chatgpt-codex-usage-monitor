@@ -53,8 +53,10 @@ struct OverlayWindowTestAccess {
       }
       return SUCCEEDED(result) && metrics.widthIncludingTrailingWhitespace <= width;
     };
-    return fits(L"100%", window.textValue_, infoWidth - 37.0f) &&
-        fits(L"重置 7天23时", window.textSmall_, infoWidth) &&
+    return fits(L"WEEK", window.textSmall_, 32.0f) &&
+        fits(L"5H", window.textSmall_, 32.0f) &&
+        fits(L"100%", window.textValue_, infoWidth - 37.0f) &&
+        fits(L"Reset 7d 23h", window.textSmall_, infoWidth) &&
         fits(L"09/13 03:22", window.textSmall_, infoWidth);
   }
   static EnergyVisualState Energy(const OverlayWindow& window) { return window.energyState_.visual; }
@@ -159,19 +161,19 @@ int wmain(int argc, wchar_t** argv) {
 
     window.OnTrayCommand(kTrayPreviewWarning);
     CHECK(Access::Energy(window) == EnergyVisualState::WarningRedBlink);
-    CHECK(Access::StatusText(window).starts_with(L"警戒"));
+    CHECK(Access::StatusText(window).starts_with(L"WARN"));
     // Threshold adjustments update text and lamp together, not hardcoded 30%.
     for (int i = 0; i < 7; ++i) window.OnTrayCommand(kTrayThresholdDown);
     CHECK(Access::Energy(window) == EnergyVisualState::NormalBlue);
-    CHECK(Access::StatusText(window).starts_with(L"正常"));
+    CHECK(Access::StatusText(window).starts_with(L"LIVE"));
     window.OnTrayCommand(kTrayPreviewStone);
     CHECK(Access::Energy(window) == EnergyVisualState::Stone);
-    CHECK(Access::StatusText(window).starts_with(L"石化"));
+    CHECK(Access::StatusText(window).starts_with(L"STONE"));
     Access::Fail(window);
     CHECK(Access::Energy(window) == EnergyVisualState::DataUnavailable);
     window.OnTrayCommand(kTrayGlow);
     CHECK(Access::Energy(window) == EnergyVisualState::DataUnavailable);
-    CHECK(Access::StatusText(window) == L"网络异常 · 刚更新");
+    CHECK(Access::StatusText(window) == L"NETWORK · now");
     window.OnTrayCommand(kTrayPreviewNormal);
 
     const char* dualJson = R"({"result":{"rateLimits":{"limitId":"codex",
@@ -195,8 +197,8 @@ int wmain(int argc, wchar_t** argv) {
       CHECK(!Access::Dual(window));
       CHECK(Access::Previous(window) == 98);
       CHECK(Access::Energy(window) == EnergyVisualState::NormalBlue);
-      CHECK(Access::Tooltip(window).find(L"主额度当前仅返回周周期") != std::wstring::npos);
-      CHECK(Access::Tooltip(window).find(L"亮色内圈") == std::wstring::npos);
+      CHECK(Access::Tooltip(window).find(L"The main quota currently returns only a weekly period") != std::wstring::npos);
+      CHECK(Access::Tooltip(window).find(L"bright inner ring") == std::wstring::npos);
       // Returning to a dual-period plan restores its inner ring/lower bar.
       CHECK(Access::Apply(window, dualJson));
       CHECK(Access::Dual(window));
@@ -220,14 +222,14 @@ int wmain(int argc, wchar_t** argv) {
     CHECK(Access::Status(window) == DataStatus::DataUnavailable);
     CHECK(Access::Energy(window) == EnergyVisualState::DataUnavailable);
     CHECK(Access::Previous(window) == 101); // No false 0% exhaustion alert.
-    CHECK(Access::StatusText(window).starts_with(L"暂不可用"));
+    CHECK(Access::StatusText(window).starts_with(L"N/A"));
     window.OnTrayCommand(kTrayGlow);
     CHECK(Access::Energy(window) == EnergyVisualState::DataUnavailable);
     CHECK(Access::Apply(window, proJson));
     Access::Fail(window);
     CHECK(Access::Energy(window) == EnergyVisualState::DataUnavailable);
     CHECK(!Access::Dual(window));
-    CHECK(Access::Tooltip(window).find(L"上次成功读取") != std::wstring::npos);
+    CHECK(Access::Tooltip(window).find(L"last successful read") != std::wstring::npos);
     CHECK(Access::Apply(window, R"({"result":{"rateLimitsByLimitId":{
       "codex_bengalfox":{"primary":{"usedPercent":0,"windowDurationMins":300},"secondary":{"usedPercent":0,"windowDurationMins":10080}}
     }}})"));

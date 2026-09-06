@@ -392,29 +392,29 @@ std::wstring FormatLocalResetTime(std::chrono::system_clock::time_point value) {
 std::wstring FormatResetCountdown(std::chrono::system_clock::time_point value,
                                   std::chrono::system_clock::time_point now) {
   auto total = std::chrono::duration_cast<std::chrono::minutes>(value - now).count();
-  if (total <= 0) return L"即将重置";
+  if (total <= 0) return L"Soon";
   const auto days = total / (24 * 60);
   total %= 24 * 60;
   const auto hours = total / 60;
   const auto minutes = total % 60;
   wchar_t buffer[48]{};
-  if (days > 0) swprintf_s(buffer, L"%lld天%lld时", static_cast<long long>(days),
+  if (days > 0) swprintf_s(buffer, L"%lldd %lldh", static_cast<long long>(days),
                             static_cast<long long>(hours));
-  else if (hours > 0) swprintf_s(buffer, L"%lld时%lld分", static_cast<long long>(hours),
+  else if (hours > 0) swprintf_s(buffer, L"%lldh %lldm", static_cast<long long>(hours),
                                  static_cast<long long>(minutes));
-  else swprintf_s(buffer, L"%lld分钟", static_cast<long long>(minutes));
+  else swprintf_s(buffer, L"%lldm", static_cast<long long>(minutes));
   return buffer;
 }
 
 std::wstring DataStatusText(DataStatus status) {
   switch (status) {
-    case DataStatus::Connecting: return L"正在连接 CODEX";
+    case DataStatus::Connecting: return L"CONNECTING TO CODEX";
     case DataStatus::Live: return L"LIVE";
-    case DataStatus::Stale: return L"STALE · 数据过期";
+    case DataStatus::Stale: return L"STALE · DATA OUTDATED";
     case DataStatus::Offline: return L"OFFLINE";
-    case DataStatus::CliMissing: return L"CODEX CLI 未安装";
-    case DataStatus::NotLoggedIn: return L"CODEX 尚未登录";
-    case DataStatus::NetworkUnavailable: return L"网络不可用";
+    case DataStatus::CliMissing: return L"CODEX CLI NOT INSTALLED";
+    case DataStatus::NotLoggedIn: return L"CODEX NOT SIGNED IN";
+    case DataStatus::NetworkUnavailable: return L"NETWORK UNAVAILABLE";
     case DataStatus::DataUnavailable: return L"DATA UNAVAILABLE";
   }
   return L"DATA UNAVAILABLE";
@@ -422,15 +422,15 @@ std::wstring DataStatusText(DataStatus status) {
 
 std::wstring FormatDataAge(std::chrono::system_clock::time_point lastSuccess,
                           std::chrono::system_clock::time_point now) {
-  if (lastSuccess.time_since_epoch().count() == 0) return L"尚未同步";
+  if (lastSuccess.time_since_epoch().count() == 0) return L"never";
   const auto minutes = std::max<int64_t>(0,
       std::chrono::duration_cast<std::chrono::minutes>(now - lastSuccess).count());
-  if (minutes == 0) return L"刚更新";
+  if (minutes == 0) return L"now";
   wchar_t buffer[40]{};
-  if (minutes < 60) swprintf_s(buffer, L"%lld分前", static_cast<long long>(minutes));
+  if (minutes < 60) swprintf_s(buffer, L"%lldm ago", static_cast<long long>(minutes));
   else if (minutes < 24 * 60) {
-    swprintf_s(buffer, L"%lld时前", static_cast<long long>(minutes / 60));
-  } else swprintf_s(buffer, L"%lld天前", static_cast<long long>(minutes / (24 * 60)));
+    swprintf_s(buffer, L"%lldh ago", static_cast<long long>(minutes / 60));
+  } else swprintf_s(buffer, L"%lldd ago", static_cast<long long>(minutes / (24 * 60)));
   return buffer;
 }
 

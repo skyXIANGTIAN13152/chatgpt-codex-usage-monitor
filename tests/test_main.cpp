@@ -29,15 +29,15 @@ void TestRemainingPercent() {
 void TestDataAge() {
   using namespace std::chrono;
   const system_clock::time_point now{seconds(1900000000)};
-  CHECK(monitor::FormatDataAge({}, now) == L"尚未同步");
-  CHECK(monitor::FormatDataAge(now, now) == L"刚更新");
-  CHECK(monitor::FormatDataAge(now - seconds(59), now) == L"刚更新");
-  CHECK(monitor::FormatDataAge(now - minutes(1), now) == L"1分前");
-  CHECK(monitor::FormatDataAge(now - minutes(59), now) == L"59分前");
-  CHECK(monitor::FormatDataAge(now - hours(1), now) == L"1时前");
-  CHECK(monitor::FormatDataAge(now - hours(23), now) == L"23时前");
-  CHECK(monitor::FormatDataAge(now - hours(24), now) == L"1天前");
-  CHECK(monitor::FormatDataAge(now + hours(2), now) == L"刚更新");
+  CHECK(monitor::FormatDataAge({}, now) == L"never");
+  CHECK(monitor::FormatDataAge(now, now) == L"now");
+  CHECK(monitor::FormatDataAge(now - seconds(59), now) == L"now");
+  CHECK(monitor::FormatDataAge(now - minutes(1), now) == L"1m ago");
+  CHECK(monitor::FormatDataAge(now - minutes(59), now) == L"59m ago");
+  CHECK(monitor::FormatDataAge(now - hours(1), now) == L"1h ago");
+  CHECK(monitor::FormatDataAge(now - hours(23), now) == L"23h ago");
+  CHECK(monitor::FormatDataAge(now - hours(24), now) == L"1d ago");
+  CHECK(monitor::FormatDataAge(now + hours(2), now) == L"now");
 }
 
 void TestParsing() {

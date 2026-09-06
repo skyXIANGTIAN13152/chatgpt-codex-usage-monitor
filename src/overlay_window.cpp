@@ -104,7 +104,7 @@ bool OverlayWindow::Create() {
   exStyle |= demoMode_ ? WS_EX_APPWINDOW : (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
   if (settings_.alwaysOnTop) exStyle |= WS_EX_TOPMOST;
   hwnd_ = CreateWindowExW(exStyle, windowClass.lpszClassName,
-                          demoMode_ ? L"额度显示器 · 精修预览（示例数据）" : kProductName, WS_POPUP,
+                          demoMode_ ? L"Quota monitor · Preview (sample data)" : kProductName, WS_POPUP,
                           0, 0, 350, 115, nullptr, nullptr, instance_, this);
   if (!hwnd_) return false;
   SetLayeredWindowAttributes(hwnd_, 0, 242, LWA_ALPHA);
@@ -371,7 +371,7 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
         KillTimer(hwnd_, kRequestTimeoutTimer);
         if (appServer_.RequestInFlight()) {
           appServer_.MarkRequestTimedOut();
-          ApplyServerError({AppServerErrorKind::Timeout, L"读取 Codex 额度超时。"});
+          ApplyServerError({AppServerErrorKind::Timeout, L"Timed out while reading the Codex quota."});
         }
       } else if (wparam == kLifecycleDebounceTimer) {
         KillTimer(hwnd_, kLifecycleDebounceTimer);
@@ -1066,8 +1066,8 @@ void OverlayWindow::Paint() {
         : std::wstring(L"--");
   };
   const std::wstring percent = percentText(window);
-  const wchar_t* singleQuotaLabel = weeklyWindow ? L"周额度"
-      : fiveHourWindow ? L"5小时额度" : L"当前额度";
+  const wchar_t* singleQuotaLabel = weeklyWindow ? L"WEEK"
+      : fiveHourWindow ? L"5-hour quota" : L"Current";
 
   struct QuotaPalette {
     D2D1_COLOR_F deep;
@@ -1344,7 +1344,7 @@ void OverlayWindow::Paint() {
     drawQuotaLabel(percentText(quota),
                    D2D1::RectF(left + 37.0f, rowTop - 1.0f, rightEdge, rowTop + 18.0f),
                    quota, fiveHour, DWRITE_TEXT_ALIGNMENT_TRAILING, textValue_);
-    drawText(L"重置 " + resetCountdown(quota), textSmall_,
+    drawText(L"Reset " + resetCountdown(quota), textSmall_,
              D2D1::RectF(left, rowTop + 17.0f, rightEdge, rowTop + 29.0f), muted);
   };
 
@@ -1386,8 +1386,8 @@ void OverlayWindow::Paint() {
                                  innerRing.point.y + 14.0f),
                      fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_CENTER);
       const float rowGap = settings_.sizeMode == HudSizeMode::Compact ? 28.0f : 35.0f;
-      drawQuotaRow(L"周额度", weeklyWindow, false, infoLeft, top - 1.0f);
-      drawQuotaRow(L"5小时", fiveHourWindow, true, infoLeft, top - 1.0f + rowGap);
+      drawQuotaRow(L"WEEK", weeklyWindow, false, infoLeft, top - 1.0f);
+      drawQuotaRow(L"5H", fiveHourWindow, true, infoLeft, top - 1.0f + rowGap);
     } else {
       IDWriteTextFormat* centerFormat = percent.size() >= 4 ? textValue_ : textRing_;
       if (centerFormat) {
@@ -1414,7 +1414,7 @@ void OverlayWindow::Paint() {
       auto drawBarRow = [&](const wchar_t* label, const RateWindow* quota, bool fiveHour, float rowTop) {
         drawQuotaLabel(label, D2D1::RectF(contentLeft, rowTop, contentLeft + 32.0f, rowTop + 17.0f),
                        quota, fiveHour, DWRITE_TEXT_ALIGNMENT_LEADING);
-        drawText(L"重置 " + resetCountdown(quota), textSmall_,
+        drawText(L"Reset " + resetCountdown(quota), textSmall_,
                  D2D1::RectF(contentLeft + 40.0f, rowTop + 3.0f, rightEdge - 46.0f, rowTop + 16.0f), muted);
         drawQuotaLabel(percentText(quota),
                        D2D1::RectF(rightEdge - 46.0f, rowTop - 1.0f, rightEdge, rowTop + 18.0f),
@@ -1422,8 +1422,8 @@ void OverlayWindow::Paint() {
         drawQuotaBar(D2D1::RectF(contentLeft, rowTop + 20.0f, rightEdge, rowTop + 27.0f),
                      quota, fiveHour);
       };
-      drawBarRow(L"周额度", weeklyWindow, false, 6.0f);
-      drawBarRow(L"5小时", fiveHourWindow, true, 6.0f + gap);
+      drawBarRow(L"WEEK", weeklyWindow, false, 6.0f);
+      drawBarRow(L"5H", fiveHourWindow, true, 6.0f + gap);
       barRight = rightEdge;
     } else {
       drawQuotaBar(D2D1::RectF(contentLeft, 18.0f, barRight, 35.0f),
@@ -1433,8 +1433,8 @@ void OverlayWindow::Paint() {
 
   if (!showProgress && dualQuota) {
     const float rowGap = settings_.sizeMode == HudSizeMode::Compact ? 28.0f : 35.0f;
-    drawQuotaRow(L"周额度", weeklyWindow, false, contentLeft, 6.0f);
-    drawQuotaRow(L"5小时", fiveHourWindow, true, contentLeft, 6.0f + rowGap);
+    drawQuotaRow(L"WEEK", weeklyWindow, false, contentLeft, 6.0f);
+    drawQuotaRow(L"5H", fiveHourWindow, true, contentLeft, 6.0f + rowGap);
   }
   if (textLarge_) textLarge_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
   if (!ringProgress && !dualQuota) {
@@ -1468,7 +1468,7 @@ void OverlayWindow::Paint() {
                     ringProgress ? row2 : 18.0f),
         window, false, ringProgress ? DWRITE_TEXT_ALIGNMENT_CENTER
                                    : DWRITE_TEXT_ALIGNMENT_LEADING);
-    const std::wstring countdown = L"重置  " + resetCountdown(window);
+    const std::wstring countdown = L"Reset  " + resetCountdown(window);
     const std::wstring absolute = resetAbsolute(window);
     const D2D1_RECT_F countdownRect =
         D2D1::RectF(infoLeft, row2, rightEdge, row2 + 16.0f);
@@ -1483,7 +1483,7 @@ void OverlayWindow::Paint() {
              secondaryText ? static_cast<ID2D1Brush*>(secondaryText)
                            : static_cast<ID2D1Brush*>(muted));
   } else if (settings_.sizeMode == HudSizeMode::Expanded) {
-    const std::wstring absolute = L"周 " + resetAbsolute(weeklyWindow) +
+    const std::wstring absolute = L"Week " + resetAbsolute(weeklyWindow) +
                                   L"  ·  5H " + resetAbsolute(fiveHourWindow);
     drawText(absolute, textSmall_, D2D1::RectF(contentLeft, 88.0f, rightEdge, 102.0f), muted);
   }
@@ -1567,8 +1567,8 @@ void OverlayWindow::Paint() {
 
   if (settings_.sizeMode == HudSizeMode::Expanded && dualQuota && showProgress) {
     const std::wstring detail = settings_.progressDisplayMode == ProgressDisplayMode::Ring
-        ? L"周·深色外圈   5H·亮色内圈"
-        : L"周·深色上条   5H·亮色下条";
+        ? L"Week: dark outer   5H: bright inner"
+        : L"Week: dark upper   5H: bright lower";
     if (secondaryText) secondaryText->SetOpacity(stonePanel ? 0.78f : 0.94f);
     drawText(detail, textSmall_, D2D1::RectF(contentLeft, size.height - 25,
                                              rightEdge - 55, size.height - 7),
@@ -1868,31 +1868,31 @@ void OverlayWindow::UpdateTooltips() {
     }
   }
 
-  quotaTooltip_ = demoMode_ ? L"精修预览 · 以下均为示例数据\n" : L"Codex 额度\n";
+  quotaTooltip_ = demoMode_ ? L"Preview · all values below are sample data\n" : L"Codex quota\n";
   const CodexQuotaWindows windows = QuotaWindows();
   auto appendWindow = [&](const wchar_t* label, const RateWindow* quota) {
     quotaTooltip_ += label;
-    if (!quota) { quotaTooltip_ += L"：暂无数据\n"; return; }
+    if (!quota) { quotaTooltip_ += L": no data\n"; return; }
     wchar_t percent[32]{};
-    swprintf_s(percent, L"：%.0f%% 剩余", quota->remainingPercent);
+    swprintf_s(percent, L": %.0f%% remaining", quota->remainingPercent);
     quotaTooltip_ += percent;
-    if (quota->resetsAt) quotaTooltip_ += L"  |  重置 " + FormatLocalResetTime(*quota->resetsAt);
+    if (quota->resetsAt) quotaTooltip_ += L"  |  Resets " + FormatLocalResetTime(*quota->resetsAt);
     quotaTooltip_ += L"\n";
   };
-  appendWindow(ShowsFiveHourQuota() ? L"周额度 · 深色外圈 / 上条" : L"周额度", windows.weekly);
+  appendWindow(ShowsFiveHourQuota() ? L"Weekly quota · dark outer ring / upper bar" : L"WEEK", windows.weekly);
   if (ShowsFiveHourQuota()) {
-    appendWindow(L"5小时 · 亮色内圈 / 下条", windows.fiveHour);
+    appendWindow(L"5 hours · bright inner ring / lower bar", windows.fiveHour);
   } else if (windows.weekly && !windows.fiveHour && displayStatus_ == DataStatus::Live) {
-    quotaTooltip_ += L"主额度当前仅返回周周期，已自动使用单圈 / 单条。\n";
+    quotaTooltip_ += L"The main quota currently returns only a weekly period; a single ring / bar is used automatically.\n";
   } else if (windows.fiveHour && settings_.quotaDisplayMode == QuotaDisplayMode::WeeklyAndFiveHour) {
-    appendWindow(L"5小时额度", windows.fiveHour);
+    appendWindow(L"5-hour quota", windows.fiveHour);
   }
-  if (displayStatus_ != DataStatus::Live) quotaTooltip_ += L"暂不可用；如有数值，为上次成功读取的记录。\n";
+  if (displayStatus_ != DataStatus::Live) quotaTooltip_ += L"Unavailable; any displayed value is from the last successful read.\n";
   if (snapshot_ && !demoMode_) {
-    quotaTooltip_ += L"最近同步：" + FormatLocalResetTime(snapshot_->lastSuccessAt) + L"\n";
-    if (!snapshot_->planType.empty()) quotaTooltip_ += L"套餐：" + Utf8ToWide(snapshot_->planType) + L"\n";
+    quotaTooltip_ += L"Last sync: " + FormatLocalResetTime(snapshot_->lastSuccessAt) + L"\n";
+    if (!snapshot_->planType.empty()) quotaTooltip_ += L"Plan: " + Utf8ToWide(snapshot_->planType) + L"\n";
   }
-  quotaTooltip_ += L"双击收起 · 右键设置 · 拖动调整位置";
+  quotaTooltip_ += L"Double-click to minimize · Right-click for settings · Drag to move";
   RECT client{};
   GetClientRect(hwnd_, &client);
   const float scale = GetDpiForWindow(hwnd_) / 96.0f * HudScale(settings_.scalePercent);
@@ -1909,9 +1909,9 @@ void OverlayWindow::UpdateTooltips() {
       const auto& rect = id == 2 ? layout.settings : layout.minimize;
       tool.rect = {static_cast<LONG>(rect.left * scale), static_cast<LONG>(rect.top * scale),
                    static_cast<LONG>(rect.right * scale), static_cast<LONG>(rect.bottom * scale)};
-      tool.lpszText = const_cast<wchar_t*>(id == 2 ? L"设置 · 额度形式、尺寸与主题"
-          : demoMode_ ? L"最小化预览 · 从任务栏恢复"
-                      : L"最小化到托盘 · 点击托盘图标恢复");
+      tool.lpszText = const_cast<wchar_t*>(id == 2 ? L"Settings · quota style, size, and theme"
+          : demoMode_ ? L"Minimize preview · Restore from the taskbar"
+                      : L"Minimize to tray · Click the tray icon to restore");
     }
     SendMessageW(tooltip_, TTM_NEWTOOLRECTW, 0, reinterpret_cast<LPARAM>(&tool));
     SendMessageW(tooltip_, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>(&tool));
@@ -1947,33 +1947,33 @@ const RateWindow* OverlayWindow::LimitingQuotaWindow() const {
 }
 
 std::wstring OverlayWindow::CurrentStatusLine() const {
-  if (demoMode_) return L"预览 · 示例数据";
+  if (demoMode_) return L"DEMO · sample";
   std::wstring state;
   if (displayStatus_ != DataStatus::Live) {
     switch (displayStatus_) {
-      case DataStatus::Connecting: state = L"连接中"; break;
-      case DataStatus::Stale: state = L"数据过期"; break;
-      case DataStatus::Offline: state = L"离线"; break;
-      case DataStatus::CliMissing: state = L"缺少 CLI"; break;
-      case DataStatus::NotLoggedIn: state = L"未登录"; break;
-      case DataStatus::NetworkUnavailable: state = L"网络异常"; break;
-      case DataStatus::DataUnavailable: state = L"暂不可用"; break;
-      default: state = L"待同步"; break;
+      case DataStatus::Connecting: state = L"CONNECT"; break;
+      case DataStatus::Stale: state = L"STALE"; break;
+      case DataStatus::Offline: state = L"OFFLINE"; break;
+      case DataStatus::CliMissing: state = L"NO CLI"; break;
+      case DataStatus::NotLoggedIn: state = L"LOGIN"; break;
+      case DataStatus::NetworkUnavailable: state = L"NETWORK"; break;
+      case DataStatus::DataUnavailable: state = L"N/A"; break;
+      default: state = L"WAIT"; break;
     }
   } else {
     const RateWindow* quota = LimitingQuotaWindow();
-    if (!quota) return L"暂无额度数据";
+    if (!quota) return L"NO QUOTA";
     // The label follows the same state machine as the chest lens, including
     // the user's custom threshold and the inclusive 10% critical boundary.
     switch (energyState_.visual) {
-      case EnergyVisualState::NormalBlue: state = L"正常"; break;
-      case EnergyVisualState::WarningRedBlink: state = L"警戒"; break;
-      case EnergyVisualState::CriticalRedFastBlink: state = L"危急"; break;
-      case EnergyVisualState::Stone: state = L"石化"; break;
-      default: state = quota->remainingPercent <= 0.0 ? L"额度耗尽" : L"待同步"; break;
+      case EnergyVisualState::NormalBlue: state = L"LIVE"; break;
+      case EnergyVisualState::WarningRedBlink: state = L"WARN"; break;
+      case EnergyVisualState::CriticalRedFastBlink: state = L"LOW"; break;
+      case EnergyVisualState::Stone: state = L"STONE"; break;
+      default: state = quota->remainingPercent <= 0.0 ? L"EMPTY" : L"WAIT"; break;
     }
   }
-  if (appServer_.RequestInFlight()) state += L" · 刷新中";
+  if (appServer_.RequestInFlight()) state += L" · sync";
   else if (snapshot_) {
     state += L" · " + FormatDataAge(snapshot_->lastSuccessAt, std::chrono::system_clock::now());
   }
@@ -1993,9 +1993,9 @@ void OverlayWindow::NotifyThresholds(double previous, double current) {
       data.hWnd = hwnd_;
       data.uID = 1;
       data.uFlags = NIF_INFO;
-      wcscpy_s(data.szInfoTitle, L"Codex 额度提醒");
-      if (threshold == 0) wcscpy_s(data.szInfo, L"额度已耗尽，能量指示器已进入石化状态。");
-      else swprintf_s(data.szInfo, L"当前限制窗口剩余已降至 %.0f%%。", current);
+      wcscpy_s(data.szInfoTitle, L"Codex Quota Alert");
+      if (threshold == 0) wcscpy_s(data.szInfo, L"The quota is depleted and the energy indicator has entered its stone state.");
+      else swprintf_s(data.szInfo, L"The limiting quota window has dropped to %.0f%% remaining.", current);
       data.dwInfoFlags = NIIF_WARNING;
       Shell_NotifyIconW(NIM_MODIFY, &data);
     }
@@ -2125,12 +2125,12 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0.5\n\n"
-          L"按主额度自动切换单圈/双圈或单条/双条，也可固定只显示周额度。\n"
-          L"周额度使用深色，5 小时额度使用浅色；Spark 独立额度不会混入。\n"
-          L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
-          L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
-          L"关于", MB_OK | MB_ICONINFORMATION);
+          L"ChatGPT Codex Usage Monitor 1.0.5 - English Edition\n\n"
+          L"Adapt rings/bars to the main quota's actual periods, or choose weekly only.\n"
+          L"Weekly uses a darker tone and 5-hour uses a lighter tone. Independent Spark quotas are never mixed in.\n"
+          L"Data comes from the official Codex App Server. Only returned percentages are shown; token counts are not invented.\n"
+          L"The chest background uses owner-provided artwork; the indicator and effects are rendered with Direct2D.",
+          L"About", MB_OK | MB_ICONINFORMATION);
       return;
     case kTrayExit:
       DestroyWindow(hwnd_);

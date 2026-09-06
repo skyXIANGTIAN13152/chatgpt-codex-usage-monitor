@@ -1,6 +1,6 @@
 # ChatGPT Codex Usage Monitor
 
-[中文说明](README.md) · English
+[Chinese README](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/blob/main/README.md) · English Edition
 
 Download **v1.0.5**: [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5-en) · [Chinese edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5). Choose the `portable.zip` asset and extract the complete archive. To upgrade, exit the monitor from its tray menu before replacing the portable application files. Your saved settings stay in their separate per-user folder.
 

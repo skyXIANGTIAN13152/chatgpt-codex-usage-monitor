@@ -98,9 +98,9 @@ std::optional<ChatGptInstance> LaunchOrFindChatGpt(std::wstring* error) {
     }
   }
   if (error) {
-    *error = L"未检测到可启动的 Microsoft Store / MSIX 版 ChatGPT。\n\n"
-             L"程序已动态枚举软件包并尝试候选 AUMID，但没有找到有效安装。";
-    if (!lastError.empty()) *error += L"\n\n最后错误：" + lastError;
+    *error = L"No launchable Microsoft Store / MSIX edition of ChatGPT was detected.\n\n"
+             L"Installed packages and candidate AUMIDs were checked, but no valid installation was found.";
+    if (!lastError.empty()) *error += L"\n\nLast error: " + lastError;
   }
   return std::nullopt;
 }
@@ -177,7 +177,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (const auto pid = MonitorPid(args)) {
       instanceInfo = FindRunningChatGptByPid(*pid);
       if (!instanceInfo) {
-        MessageBoxW(nullptr, L"--monitor 指定的进程不是正在运行的 ChatGPT。",
+        MessageBoxW(nullptr, L"The process specified by --monitor is not a running ChatGPT instance.",
                     kProductName, MB_OK | MB_ICONERROR);
         ReleaseMutex(mutex);
         CloseHandle(mutex);
@@ -199,7 +199,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
   OverlayWindow overlay(instance, std::move(settings), std::move(chatGpt), demoMode);
   if (!overlay.Create()) {
-    MessageBoxW(nullptr, L"无法创建额度 HUD。", kProductName, MB_OK | MB_ICONERROR);
+    MessageBoxW(nullptr, L"Unable to create the quota HUD.", kProductName, MB_OK | MB_ICONERROR);
     ReleaseMutex(mutex);
     CloseHandle(mutex);
     return 5;
