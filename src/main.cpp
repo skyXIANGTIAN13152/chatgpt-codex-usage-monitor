@@ -113,9 +113,42 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   winrt::init_apartment(winrt::apartment_type::single_threaded);
   const std::vector<std::wstring> args = Arguments();
+  const bool demoMode = HasArgument(args, L"--demo");
   Settings settings = LoadSettings();
   if (HasArgument(args, L"--debug")) settings.debugLogging = true;
-  Logger::Instance().Initialize(settings.debugLogging);
+  if (!demoMode) Logger::Instance().Initialize(settings.debugLogging);
+  if (demoMode) {
+    // Preview inherits the selected scale but cannot write the live settings.
+    settings.x = INT_MIN;
+    settings.y = INT_MIN;
+    settings.followChatGpt = false;
+    wchar_t previewOption[32]{};
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_VIEW", previewOption, 32);
+        length > 0 && length < std::size(previewOption)) {
+      settings.progressDisplayMode = _wcsicmp(previewOption, L"bar") == 0
+          ? ProgressDisplayMode::Bar : ProgressDisplayMode::Ring;
+    }
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_SCALE", previewOption, 32);
+        length > 0 && length < std::size(previewOption)) {
+      wchar_t* end = nullptr;
+      const long value = wcstol(previewOption, &end, 10);
+      if (end != previewOption && *end == L'\0') {
+        settings.scalePercent = static_cast<int>(std::clamp(value,
+            static_cast<long>(kMinHudScalePercent), static_cast<long>(kMaxHudScalePercent)));
+      }
+    }
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_LAYOUT", previewOption, 32);
+        length > 0 && length < std::size(previewOption)) {
+      settings.sizeMode = _wcsicmp(previewOption, L"expanded") == 0
+          ? HudSizeMode::Expanded : _wcsicmp(previewOption, L"standard") == 0
+              ? HudSizeMode::Standard : HudSizeMode::Compact;
+    }
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_WEEKLY_ONLY", previewOption, 32);
+        length > 0 && length < std::size(previewOption)) {
+      settings.quotaDisplayMode = _wtoi(previewOption) != 0
+          ? QuotaDisplayMode::WeeklyOnly : QuotaDisplayMode::WeeklyAndFiveHour;
+    }
+  }
 
   if (HasArgument(args, L"--check-environment")) {
     int result = 0;
@@ -124,12 +157,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     return result;
   }
 
-  HANDLE mutex = CreateMutexW(nullptr, TRUE, kMutexName);
+  HANDLE mutex = CreateMutexW(nullptr, TRUE, demoMode ? kPreviewMutexName : kMutexName);
   if (!mutex) return 2;
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
-    if (HWND existing = FindWindowW(kWindowClass, nullptr)) {
+    if (HWND existing = FindWindowW(demoMode ? kPreviewWindowClass : kWindowClass, nullptr)) {
       PostMessageW(existing, WM_MONITOR_SHOW, 0, 0);
-      if (auto running = FindRunningChatGpt(); running && running->mainWindow) {
+      if (auto running = demoMode ? std::optional<ChatGptInstance>{} : FindRunningChatGpt();
+          running && running->mainWindow) {
         ActivateChatGptWindow(running->mainWindow);
       }
     }
@@ -137,7 +171,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     return 0;
   }
 
-  const bool demoMode = HasArgument(args, L"--demo");
   ChatGptInstance chatGpt;
   if (!demoMode) {
     std::optional<ChatGptInstance> instanceInfo;

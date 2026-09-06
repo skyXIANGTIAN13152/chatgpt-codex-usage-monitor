@@ -23,6 +23,9 @@ struct HudControlLayout {
 };
 
 HudControlLayout CalculateHudControlLayout(float widthDips, float heightDips);
+constexpr float kHudArtworkRight = 120.0f;
+float CalculateHudRingLeft(float contentLeft, bool showEnergy);
+float SingleQuotaPercentWidth(double remainingPercent);
 HudControl HitTestHudControl(int xPixels, int yPixels, int widthPixels,
                              int heightPixels, UINT dpi, float uiScale = 1.0f);
 

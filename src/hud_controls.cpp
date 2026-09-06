@@ -12,13 +12,25 @@ bool Contains(const HudControlRect& rect, float x, float y) {
 
 HudControlLayout CalculateHudControlLayout(float widthDips, float heightDips) {
   const float rightEdge = widthDips - 12.0f;
-  const float top = heightDips - 36.0f;
+  // Keep the hit targets inside the footer so the second quota's reset time
+  // cannot accidentally open Settings or minimize the window.
+  const float top = heightDips - 27.0f;
   const float bottom = heightDips - 2.0f;
   const float split = rightEdge - 27.0f;
   return {
       {rightEdge - 54.0f, top, split, bottom},
       {split, top, widthDips, bottom},
   };
+}
+
+float CalculateHudRingLeft(float contentLeft, bool showEnergy) {
+  // Keep the ring and its glow outside the chest at every user scale and DPI.
+  return showEnergy ? std::max(contentLeft, kHudArtworkRight + 6.0f) : contentLeft;
+}
+
+float SingleQuotaPercentWidth(double remainingPercent) {
+  // The displayed percentage is rounded to a whole number.
+  return remainingPercent >= 99.5 ? 84.0f : 64.0f;
 }
 
 HudControl HitTestHudControl(int xPixels, int yPixels, int widthPixels,

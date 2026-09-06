@@ -52,6 +52,12 @@ int main(int argc, char** argv) {
            ",\"result\":{\"account\":{\"type\":\"chatgpt\"},\"requiresOpenaiAuth\":true}}");
     } else if (method == "account/rateLimits/read") {
       if (scenario == "timeout") continue;
+      if (scenario == "notification-timeout") {
+        Send("{\"method\":\"account/rateLimits/updated\",\"params\":{\"rateLimits\":{"
+             "\"limitId\":\"codex\",\"primary\":{\"usedPercent\":78,"
+             "\"windowDurationMins\":300,\"resetsAt\":1893456000}}}}");
+        continue;
+      }
       if (scenario == "close") return 0;
       if (scenario == "401") {
         Send("{\"id\":" + std::to_string(id) +
@@ -67,8 +73,13 @@ int main(int argc, char** argv) {
       if (scenario == "double") {
         Send("{\"id\":" + std::to_string(id) +
              ",\"result\":{\"rateLimitsByLimitId\":{"
-             "\"codex\":{\"limitId\":\"codex\",\"primary\":{\"usedPercent\":45,\"windowDurationMins\":300,\"resetsAt\":1893456000}},"
-             "\"codex_weekly\":{\"limitId\":\"codex_weekly\",\"limitName\":\"Weekly\",\"primary\":{\"usedPercent\":70,\"windowDurationMins\":10080,\"resetsAt\":1893542400}}}}}");
+             "\"codex\":{\"limitId\":\"codex\",\"primary\":{\"usedPercent\":45,\"windowDurationMins\":300,\"resetsAt\":1893456000},"
+             "\"secondary\":{\"usedPercent\":70,\"windowDurationMins\":10080,\"resetsAt\":1893542400}}}}}");
+      } else if (scenario == "pro-weekly") {
+        Send("{\"id\":" + std::to_string(id) +
+             R"(,"result":{"rateLimitsByLimitId":{)"
+             R"("codex":{"planType":"prolite","primary":{"usedPercent":2,"windowDurationMins":10080,"resetsAt":1893542400},"secondary":null},)"
+             R"("codex_bengalfox":{"primary":{"usedPercent":0,"windowDurationMins":300},"secondary":{"usedPercent":0,"windowDurationMins":10080}}}}})");
       } else {
         std::string extras;
         if (scenario == "unlimited") extras = ",\"credits\":{\"unlimited\":true}";

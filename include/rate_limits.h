@@ -36,6 +36,9 @@ struct CreditsInfo {
 
 struct RateLimitSnapshot {
   std::vector<RateWindow> windows;
+  // Fields explicitly present in a sparse notification, including nulls.
+  // Omitted fields keep their cache; present-but-empty fields clear it.
+  std::vector<std::pair<std::string, std::string>> updatedWindows;
   CreditsInfo credits;
   std::string planType;
   std::string rateLimitReachedType;
@@ -55,11 +58,13 @@ enum class QuotaWindowKind {
 struct CodexQuotaWindows {
   const RateWindow* weekly = nullptr;
   const RateWindow* fiveHour = nullptr;
+  const RateWindow* other = nullptr;
 };
 
 double RemainingPercent(double usedPercent);
 QuotaWindowKind ClassifyQuotaWindow(const RateWindow& window);
 CodexQuotaWindows SelectCodexQuotaWindows(const RateLimitSnapshot& snapshot);
+bool HasCodexQuotaUpdate(const RateLimitSnapshot& snapshot);
 RateLimitSnapshot MergeSparseRateLimitSnapshot(const RateLimitSnapshot& base,
                                                const RateLimitSnapshot& update);
 std::optional<std::chrono::system_clock::time_point> ParseResetTime(const JsonValue& value);
@@ -71,5 +76,7 @@ std::wstring FormatLocalResetTime(std::chrono::system_clock::time_point value);
 std::wstring FormatResetCountdown(std::chrono::system_clock::time_point value,
                                   std::chrono::system_clock::time_point now);
 std::wstring DataStatusText(DataStatus status);
+std::wstring FormatDataAge(std::chrono::system_clock::time_point lastSuccess,
+                          std::chrono::system_clock::time_point now);
 
 }  // namespace monitor

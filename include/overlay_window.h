@@ -3,6 +3,7 @@
 #include "chatgpt.h"
 #include "codex_app_server.h"
 #include "settings.h"
+#include "hud_controls.h"
 
 struct ID2D1Factory;
 struct ID2D1HwndRenderTarget;
@@ -29,6 +30,7 @@ class OverlayWindow {
   void UpdateTrayTooltip();
 
  private:
+  friend struct OverlayWindowTestAccess;
   static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT HandleMessage(UINT message, WPARAM wparam, LPARAM lparam);
   void Paint();
@@ -50,6 +52,9 @@ class OverlayWindow {
   void ClampToWorkArea(RECT* rect) const;
   void SaveWindowPosition();
   void ResizeForMode();
+  void SetHidden(bool hidden);
+  void UpdateTooltips();
+  void RefreshDataAge();
   CodexQuotaWindows QuotaWindows() const;
   const RateWindow* PrimaryQuotaWindow() const;
   const RateWindow* LimitingQuotaWindow() const;
@@ -79,6 +84,9 @@ class OverlayWindow {
   HANDLE networkNotification_ = nullptr;
   UINT taskbarCreatedMessage_ = 0;
   bool trayIconAdded_ = false;
+  HWND tooltip_ = nullptr;
+  std::wstring quotaTooltip_;
+  HudControl hoveredControl_ = HudControl::None;
 
   ID2D1Factory* d2dFactory_ = nullptr;
   ID2D1HwndRenderTarget* renderTarget_ = nullptr;
@@ -93,6 +101,7 @@ class OverlayWindow {
   IDWriteTextFormat* textMedium_ = nullptr;
   IDWriteTextFormat* textLarge_ = nullptr;
   IDWriteTextFormat* textRing_ = nullptr;
+  IDWriteTextFormat* textValue_ = nullptr;
 };
 
 enum TrayCommand : UINT {
@@ -116,6 +125,22 @@ enum TrayCommand : UINT {
   kTrayScaleDown,
   kTrayScaleUp,
   kTrayScaleReset,
+  kTrayViewRing = 2100,
+  kTrayViewBar,
+  kTrayQuotaBoth,
+  kTrayQuotaWeekly,
+  kTrayDisplayBoth,
+  kTrayDisplayProgress,
+  kTrayDisplayEnergy,
+  kTrayLayoutCompact,
+  kTrayLayoutStandard,
+  kTrayLayoutExpanded,
+  kTrayBlinkGentle,
+  kTrayBlinkStandard,
+  kTrayBlinkFast,
+  kTrayPreviewNormal,
+  kTrayPreviewWarning,
+  kTrayPreviewStone,
 };
 
 }  // namespace monitor

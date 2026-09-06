@@ -13,6 +13,7 @@
 #include <wincodec.h>
 #include <windowsx.h>
 #include <cmath>
+#include <commctrl.h>
 
 namespace monitor {
 namespace {
@@ -22,6 +23,7 @@ constexpr UINT_PTR kBlinkTimer = 2;
 constexpr UINT_PTR kRequestTimeoutTimer = 3;
 constexpr UINT_PTR kLifecycleDebounceTimer = 4;
 constexpr UINT_PTR kFollowCoalesceTimer = 5;
+constexpr UINT_PTR kDataAgeTimer = 7;
 
 template <typename T>
 void Release(T*& value) {
@@ -57,15 +59,6 @@ float HudScale(int percent) {
                                        kMaxHudScalePercent)) / 100.0f;
 }
 
-std::wstring WindowLabel(const RateWindow& window) {
-  if (ClassifyQuotaWindow(window) == QuotaWindowKind::Weekly) return L"周额度";
-  if (ClassifyQuotaWindow(window) == QuotaWindowKind::FiveHour) return L"5小时额度";
-  if (!window.bucketName.empty() && window.bucketName != "codex") return Utf8ToWide(window.bucketName);
-  if (window.windowDurationMins >= 24 * 60) return L"多日额度";
-  if (window.windowDurationMins >= 60) return L"小时额度";
-  return L"主要额度";
-}
-
 }  // namespace
 
 OverlayWindow::OverlayWindow(HINSTANCE instance, Settings settings,
@@ -81,6 +74,7 @@ OverlayWindow::~OverlayWindow() {
   Release(textMedium_);
   Release(textLarge_);
   Release(textRing_);
+  Release(textValue_);
   Release(writeFactory_);
   Release(wicFactory_);
   Release(d2dFactory_);
@@ -92,7 +86,7 @@ bool OverlayWindow::Create() {
   windowClass.style = CS_DBLCLKS;
   windowClass.hInstance = instance_;
   windowClass.lpfnWndProc = WindowProc;
-  windowClass.lpszClassName = kWindowClass;
+  windowClass.lpszClassName = demoMode_ ? kPreviewWindowClass : kWindowClass;
   windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   windowClass.hIcon = static_cast<HICON>(LoadImageW(
       instance_, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON,
@@ -106,10 +100,11 @@ bool OverlayWindow::Create() {
   if (!windowClass.hIconSm) windowClass.hIconSm = windowClass.hIcon;
   RegisterClassExW(&windowClass);
 
-  DWORD exStyle = WS_EX_NOACTIVATE | WS_EX_LAYERED;
-  if (!demoMode_) exStyle |= WS_EX_TOOLWINDOW;
+  DWORD exStyle = WS_EX_LAYERED;
+  exStyle |= demoMode_ ? WS_EX_APPWINDOW : (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
   if (settings_.alwaysOnTop) exStyle |= WS_EX_TOPMOST;
-  hwnd_ = CreateWindowExW(exStyle, kWindowClass, kProductName, WS_POPUP,
+  hwnd_ = CreateWindowExW(exStyle, windowClass.lpszClassName,
+                          demoMode_ ? L"额度显示器 · 精修预览（示例数据）" : kProductName, WS_POPUP,
                           0, 0, 350, 115, nullptr, nullptr, instance_, this);
   if (!hwnd_) return false;
   SetLayeredWindowAttributes(hwnd_, 0, 242, LWA_ALPHA);
@@ -121,8 +116,11 @@ bool OverlayWindow::Create() {
   ResizeForMode();
   PositionInitially();
   taskbarCreatedMessage_ = RegisterWindowMessageW(L"TaskbarCreated");
-  AddTrayIcon();
-  NotifyIpInterfaceChange(AF_UNSPEC, InterfaceChanged, hwnd_, FALSE, &networkNotification_);
+  if (!demoMode_) {
+    AddTrayIcon();
+    NotifyIpInterfaceChange(AF_UNSPEC, InterfaceChanged, hwnd_, FALSE, &networkNotification_);
+  }
+  UpdateTooltips();
 
   if (demoMode_) {
     RateLimitSnapshot demo;
@@ -132,14 +130,15 @@ bool OverlayWindow::Create() {
     RateWindow primary;
     primary.bucketId = "codex";
     primary.bucketName = "codex";
-    primary.windowName = "primary";
+    primary.windowName = "secondary"; // Weekly fixture matches the regular protocol slot.
     double demoRemaining = 55.0;
     wchar_t demoValue[32]{};
-    if (GetEnvironmentVariableW(L"MONITOR_DEMO_REMAINING", demoValue,
-                                static_cast<DWORD>(std::size(demoValue))) > 0) {
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_REMAINING", demoValue,
+                                static_cast<DWORD>(std::size(demoValue)));
+        length > 0 && length < std::size(demoValue)) {
       wchar_t* end = nullptr;
       const double parsed = wcstod(demoValue, &end);
-      if (end && *end == L'\0' && std::isfinite(parsed)) {
+      if (end != demoValue && *end == L'\0' && std::isfinite(parsed)) {
         demoRemaining = std::clamp(parsed, 0.0, 100.0);
       }
     }
@@ -149,14 +148,15 @@ bool OverlayWindow::Create() {
     primary.resetsAt = std::chrono::system_clock::now() + std::chrono::hours(158);
     demo.windows.push_back(primary);
     RateWindow secondary = primary;
-    secondary.windowName = "secondary";
+    secondary.windowName = "primary";
     double fiveHourRemaining = 72.0;
     wchar_t fiveHourValue[32]{};
-    if (GetEnvironmentVariableW(L"MONITOR_DEMO_FIVE_HOUR_REMAINING", fiveHourValue,
-                                static_cast<DWORD>(std::size(fiveHourValue))) > 0) {
+    if (const DWORD length = GetEnvironmentVariableW(L"MONITOR_DEMO_FIVE_HOUR_REMAINING", fiveHourValue,
+                                static_cast<DWORD>(std::size(fiveHourValue)));
+        length > 0 && length < std::size(fiveHourValue)) {
       wchar_t* end = nullptr;
       const double parsed = wcstod(fiveHourValue, &end);
-      if (end && *end == L'\0' && std::isfinite(parsed)) {
+      if (end != fiveHourValue && *end == L'\0' && std::isfinite(parsed)) {
         fiveHourRemaining = std::clamp(parsed, 0.0, 100.0);
       }
     }
@@ -164,7 +164,21 @@ bool OverlayWindow::Create() {
     secondary.remainingPercent = fiveHourRemaining;
     secondary.windowDurationMins = 300;
     secondary.resetsAt = std::chrono::system_clock::now() + std::chrono::hours(3);
-    demo.windows.push_back(secondary);
+    wchar_t proFixture[2]{};
+    GetEnvironmentVariableW(L"MONITOR_DEMO_PRO_ACCOUNT", proFixture, 2);
+    if (proFixture[0] == L'1') {
+      // Main bucket has only weekly data; Spark still supplies a full pair.
+      demo.windows.front().windowName = "primary";
+      secondary.bucketId = "codex_bengalfox";
+      secondary.remainingPercent = 100;
+      secondary.usedPercent = 0;
+      demo.windows.push_back(secondary);
+      secondary.windowName = "secondary";
+      secondary.windowDurationMins = 10080;
+      demo.windows.push_back(secondary);
+    } else {
+      demo.windows.push_back(secondary);
+    }
     demo.credits.present = true;
     demo.credits.balance = 12.5;
     ApplySnapshot(std::move(demo));
@@ -174,6 +188,7 @@ bool OverlayWindow::Create() {
     StartCodex();
   }
   ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
+  if (!demoMode_) SetTimer(hwnd_, kDataAgeTimer, 30000, nullptr);
   UpdateWindow(hwnd_);
   return true;
 }
@@ -212,8 +227,62 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       return 0;
     case WM_ERASEBKGND:
       return 1;
+    case WM_SIZE:
+      // Taskbar/assistive activation can restore the preview with ShowWindow
+      // rather than SC_RESTORE. Keep menu labels and the blink timer in sync.
+      if (demoMode_ && hidden_ != (wparam == SIZE_MINIMIZED)) {
+        hidden_ = wparam == SIZE_MINIMIZED;
+        hoveredControl_ = HudControl::None;
+        ConfigureBlinkTimer();
+      }
+      break;
     case WM_MOUSEACTIVATE:
-      return MA_NOACTIVATE;
+      return demoMode_ ? MA_ACTIVATE : MA_NOACTIVATE;
+    case WM_MOUSEMOVE: {
+      RECT client{};
+      GetClientRect(hwnd_, &client);
+      const HudControl hovered = HitTestHudControl(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+          client.right, client.bottom, GetDpiForWindow(hwnd_), HudScale(settings_.scalePercent));
+      if (hoveredControl_ != hovered) {
+        hoveredControl_ = hovered;
+        InvalidateRect(hwnd_, nullptr, FALSE);
+      }
+      TRACKMOUSEEVENT tracking{sizeof(tracking), TME_LEAVE, hwnd_, 0};
+      TrackMouseEvent(&tracking);
+      return 0;
+    }
+    case WM_NCMOUSEMOVE: {
+      // Most of the frameless HUD is a draggable caption. Relay its movement
+      // in client coordinates so quota details can still appear on hover.
+      if (tooltip_) {
+        POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(hwnd_, &point);
+        MSG relay{hwnd_, WM_MOUSEMOVE, 0, MAKELPARAM(point.x, point.y)};
+        SendMessageW(tooltip_, TTM_RELAYEVENT, 0, reinterpret_cast<LPARAM>(&relay));
+      }
+      TRACKMOUSEEVENT tracking{sizeof(tracking), TME_LEAVE | TME_NONCLIENT, hwnd_, 0};
+      TrackMouseEvent(&tracking);
+      if (hoveredControl_ != HudControl::None) {
+        hoveredControl_ = HudControl::None;
+        InvalidateRect(hwnd_, nullptr, FALSE);
+      }
+      break;
+    }
+    case WM_NCMOUSELEAVE:
+      if (tooltip_) SendMessageW(tooltip_, TTM_POP, 0, 0);
+      [[fallthrough]];
+    case WM_MOUSELEAVE:
+      if (hoveredControl_ != HudControl::None) {
+        hoveredControl_ = HudControl::None;
+        InvalidateRect(hwnd_, nullptr, FALSE);
+      }
+      break;
+    case WM_SETCURSOR:
+      if (LOWORD(lparam) == HTCLIENT && hoveredControl_ != HudControl::None) {
+        SetCursor(LoadCursorW(nullptr, IDC_HAND));
+        return TRUE;
+      }
+      break;
     case WM_NCHITTEST: {
       const LRESULT base = DefWindowProcW(hwnd_, message, wparam, lparam);
       if (base != HTCLIENT) return base;
@@ -234,8 +303,7 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
                                                    GetDpiForWindow(hwnd_),
                                                    HudScale(settings_.scalePercent));
       if (control == HudControl::Minimize) {
-        hidden_ = true;
-        ShowWindow(hwnd_, SW_HIDE);
+        SetHidden(true);
       } else if (control == HudControl::Settings) {
         OpenSettingsMenu();
       } else {
@@ -244,10 +312,14 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       return 0;
     }
     case WM_LBUTTONDBLCLK:
-      hidden_ = true;
-      ShowWindow(hwnd_, SW_HIDE);
+    case WM_NCLBUTTONDBLCLK:
+      SetHidden(true);
       return 0;
-    case WM_RBUTTONUP: {
+    case WM_NCLBUTTONUP:
+      if (wparam == HTCAPTION) RequestRefresh(true);
+      return 0;
+    case WM_RBUTTONUP:
+    case WM_NCRBUTTONUP: {
       POINT point{};
       GetCursorPos(&point);
       ShowTrayMenu(point);
@@ -310,6 +382,8 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       } else if (wparam == kTrayRetryTimer) {
         AddTrayIcon();
         if (trayIconAdded_) UpdateTrayTooltip();
+      } else if (wparam == kDataAgeTimer) {
+        RefreshDataAge();
       }
       return 0;
     case WM_MONITOR_SNAPSHOT: {
@@ -335,19 +409,12 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       AuditChatGptWindows();
       return 0;
     case WM_MONITOR_SHOW:
-      hidden_ = false;
-      ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
-      SetWindowPos(hwnd_, settings_.alwaysOnTop ? HWND_TOPMOST : HWND_TOP,
-                   0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      SetHidden(false);
       return 0;
     case WM_MONITOR_TRAY:
       if (LOWORD(lparam) == WM_LBUTTONUP || LOWORD(lparam) == NIN_SELECT ||
           LOWORD(lparam) == NIN_KEYSELECT) {
-        hidden_ = HiddenAfterTrayPrimaryActivation(hidden_);
-        ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
-        SetWindowPos(hwnd_, settings_.alwaysOnTop ? HWND_TOPMOST : HWND_TOP,
-                     0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        InvalidateRect(hwnd_, nullptr, FALSE);
+        SetHidden(HiddenAfterTrayPrimaryActivation(hidden_));
       } else if (LOWORD(lparam) == WM_RBUTTONUP || LOWORD(lparam) == WM_CONTEXTMENU) {
         POINT point{};
         GetCursorPos(&point);
@@ -360,6 +427,13 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
     case WM_CLOSE:
       DestroyWindow(hwnd_);
       return 0;
+    case WM_SYSCOMMAND:
+      if (demoMode_ && ((wparam & 0xfff0) == SC_RESTORE ||
+                        (wparam & 0xfff0) == SC_MINIMIZE)) {
+        SetHidden((wparam & 0xfff0) == SC_MINIMIZE);
+        return 0;
+      }
+      break;
     case WM_DESTROY:
       SaveWindowPosition();
       RemoveTrayIcon();
@@ -369,6 +443,10 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       }
       lifecycle_.Stop();
       appServer_.Stop();
+      if (tooltip_) {
+        DestroyWindow(tooltip_);
+        tooltip_ = nullptr;
+      }
       PostQuitMessage(0);
       return 0;
   }
@@ -395,7 +473,13 @@ void OverlayWindow::EnsureGraphicsResources() {
       writeFactory_->CreateTextFormat(L"Segoe UI Variable", nullptr,
           DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
           DWRITE_FONT_STRETCH_NORMAL, 20.0f, L"zh-CN", &textRing_);
+      writeFactory_->CreateTextFormat(L"Segoe UI Variable", nullptr,
+          DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
+          DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"zh-CN", &textValue_);
+      if (textValue_) textValue_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
       if (textRing_) textRing_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+      if (textMedium_) textMedium_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+      if (textLarge_) textLarge_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
       if (textSmall_) {
         textSmall_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
         DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
@@ -539,24 +623,52 @@ void OverlayWindow::DrawThemedPanelImage(float width, float height) {
   }
   renderTarget_->CreateLayer(nullptr, &fadeLayer);
 
+  // Preserve the lamp and upper armor, but dissolve the rectangular bitmap's
+  // bottom edge into the same background light instead of ending at a seam.
+  const D2D1_GRADIENT_STOP bottomStops[] = {
+      {0.00f, D2D1::ColorF(1, 1, 1, 1.00f)},
+      {0.62f, D2D1::ColorF(1, 1, 1, 1.00f)},
+      {0.78f, D2D1::ColorF(1, 1, 1, 0.82f)},
+      {0.91f, D2D1::ColorF(1, 1, 1, 0.34f)},
+      {1.00f, D2D1::ColorF(1, 1, 1, 0.00f)},
+  };
+  ID2D1GradientStopCollection* bottomCollection = nullptr;
+  ID2D1LinearGradientBrush* bottomBrush = nullptr;
+  ID2D1Layer* bottomLayer = nullptr;
+  if (SUCCEEDED(renderTarget_->CreateGradientStopCollection(
+          bottomStops, static_cast<UINT32>(std::size(bottomStops)),
+          D2D1_GAMMA_2_2, D2D1_EXTEND_MODE_CLAMP, &bottomCollection))) {
+    renderTarget_->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
+        D2D1::Point2F(0, destination.top), D2D1::Point2F(0, destination.bottom)),
+        bottomCollection, &bottomBrush);
+  }
+  renderTarget_->CreateLayer(nullptr, &bottomLayer);
+
   if (fadeBrush && fadeLayer) {
     D2D1_LAYER_PARAMETERS parameters = D2D1::LayerParameters();
     parameters.contentBounds = D2D1::RectF(
-        0.5f, 0.5f, std::min(width - 0.5f, 120.0f), height - 0.5f);
+        0.5f, 0.5f, std::min(width - 0.5f, kHudArtworkRight), height - 0.5f);
     parameters.opacityBrush = fadeBrush;
     renderTarget_->PushLayer(parameters, fadeLayer);
   }
+  if (bottomBrush && bottomLayer) {
+    D2D1_LAYER_PARAMETERS parameters = D2D1::LayerParameters();
+    parameters.contentBounds = D2D1::RectF(
+        0.5f, 0.5f, std::min(width - 0.5f, kHudArtworkRight), height - 0.5f);
+    parameters.opacityBrush = bottomBrush;
+    renderTarget_->PushLayer(parameters, bottomLayer);
+  }
 
   ID2D1Bitmap* artwork = chestBitmap_;
-  float artworkOpacity = 0.76f;
+  float artworkOpacity = 0.82f;
   if (energyState_.visual == EnergyVisualState::WarningRedBlink ||
       energyState_.visual == EnergyVisualState::CriticalRedFastBlink) {
     if (blinkOn_ && chestWarningOnBitmap_) {
       artwork = chestWarningOnBitmap_;
-      artworkOpacity = 0.88f;
+      artworkOpacity = 0.82f;
     } else if (chestWarningOffBitmap_) {
       artwork = chestWarningOffBitmap_;
-      artworkOpacity = 0.78f;
+      artworkOpacity = 0.82f;
     }
   } else if (energyState_.visual == EnergyVisualState::Stone &&
              chestStoneBitmap_) {
@@ -571,175 +683,69 @@ void OverlayWindow::DrawThemedPanelImage(float width, float height) {
       artwork, destination, artworkOpacity,
       D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
 
+  if (bottomBrush && bottomLayer) renderTarget_->PopLayer();
   if (fadeBrush && fadeLayer) renderTarget_->PopLayer();
+  Release(bottomLayer);
+  Release(bottomBrush);
+  Release(bottomCollection);
   Release(fadeLayer);
   Release(fadeBrush);
   Release(fadeCollection);
 }
 
 void OverlayWindow::DrawTributeLightBackground(float width, float height) {
-  if (!renderTarget_ || !d2dFactory_) return;
-
+  if (!renderTarget_) return;
   const bool stone = energyState_.visual == EnergyVisualState::Stone;
+  const bool unavailable = energyState_.visual == EnergyVisualState::DataUnavailable;
   const bool warning = energyState_.visual == EnergyVisualState::WarningRedBlink ||
                        energyState_.visual == EnergyVisualState::CriticalRedFastBlink;
-  const float lightStrength = stone ? 0.24f : (warning ? 0.88f : 1.0f);
-  const float scaleX = width / 300.0f;
-  const float scaleY = height / 90.0f;
-  const D2D1_POINT_2F focus = D2D1::Point2F(46.0f * scaleX, 35.0f * scaleY);
+  const bool neutral = stone || unavailable;
+  const float strength = neutral ? 0.24f : 1.0f;
+  const float focusX = settings_.displayMode == IndicatorDisplayMode::ProgressOnly
+      ? width * 0.22f : 46.0f;
+  const D2D1_ROUNDED_RECT panel = D2D1::RoundedRect(
+      D2D1::RectF(0.5f, 0.5f, width - 0.5f, height - 0.5f), 10.0f, 10.0f);
 
-  // A restrained dawn glow: darkness at the top gives way to warm human light
-  // rising from below, echoing the finale without using another bitmap.
-  D2D1_GRADIENT_STOP dawnStops[] = {
-      {0.00f, D2D1::ColorF(1.00f, 0.82f, 0.34f, 0.25f * lightStrength)},
-      {0.28f, D2D1::ColorF(0.55f, 0.38f, 0.92f, 0.115f * lightStrength)},
-      {0.66f, D2D1::ColorF(0.08f, 0.42f, 0.88f, 0.040f * lightStrength)},
-      {1.00f, D2D1::ColorF(0.02f, 0.03f, 0.08f, 0.00f)},
-  };
-  ID2D1GradientStopCollection* dawnCollection = nullptr;
-  ID2D1RadialGradientBrush* dawn = nullptr;
-  if (SUCCEEDED(renderTarget_->CreateGradientStopCollection(
-          dawnStops, static_cast<UINT32>(std::size(dawnStops)),
-          D2D1_GAMMA_2_2, D2D1_EXTEND_MODE_CLAMP, &dawnCollection))) {
-    renderTarget_->CreateRadialGradientBrush(
-        D2D1::RadialGradientBrushProperties(
-            D2D1::Point2F(width * 0.70f, height + 3.0f),
-            D2D1::Point2F(0.0f, 0.0f), width * 0.64f, height * 1.10f),
-        dawnCollection, &dawn);
-  }
-  if (dawn) {
-    renderTarget_->FillRoundedRectangle(
-        D2D1::RoundedRect(D2D1::RectF(0.5f, 0.5f, width - 0.5f,
-                                     height - 0.5f), 10.0f, 10.0f), dawn);
-  }
-
-  D2D1_GRADIENT_STOP hopeStops[] = {
-      {0.00f, warning
-          ? D2D1::ColorF(0.92f, 0.24f, 0.50f, 0.12f * lightStrength)
-          : D2D1::ColorF(0.22f, 0.68f, 1.00f, 0.12f * lightStrength)},
-      {0.42f, D2D1::ColorF(0.46f, 0.24f, 0.86f, 0.055f * lightStrength)},
-      {1.00f, D2D1::ColorF(0.04f, 0.03f, 0.10f, 0.00f)},
-  };
-  ID2D1GradientStopCollection* hopeCollection = nullptr;
-  ID2D1RadialGradientBrush* hope = nullptr;
-  if (SUCCEEDED(renderTarget_->CreateGradientStopCollection(
-          hopeStops, static_cast<UINT32>(std::size(hopeStops)),
-          D2D1_GAMMA_2_2, D2D1_EXTEND_MODE_CLAMP, &hopeCollection))) {
-    renderTarget_->CreateRadialGradientBrush(
-        D2D1::RadialGradientBrushProperties(
-            D2D1::Point2F(width * 0.82f, height * 0.08f),
-            D2D1::Point2F(0.0f, 0.0f), width * 0.44f, height * 0.72f),
-        hopeCollection, &hope);
-  }
-  if (hope) {
-    renderTarget_->FillRoundedRectangle(
-        D2D1::RoundedRect(D2D1::RectF(0.5f, 0.5f, width - 0.5f,
-                                     height - 0.5f), 10.0f, 10.0f), hope);
-  }
-
-  ID2D1SolidColorBrush* humanLight = nullptr;
-  ID2D1SolidColorBrush* coolLight = nullptr;
-  renderTarget_->CreateSolidColorBrush(
-      D2D1::ColorF(1.00f, 0.84f, 0.39f, 1.0f), &humanLight);
-  renderTarget_->CreateSolidColorBrush(
-      D2D1::ColorF(warning ? 1.00f : 0.33f,
-                   warning ? 0.38f : 0.86f,
-                   warning ? 0.45f : 1.00f, 1.0f), &coolLight);
-
-  struct RayEnd { float x; float y; float alpha; float stroke; bool warm; };
-  constexpr RayEnd rays[] = {
-      {111.0f, -3.0f, 0.19f, 0.72f, true},
-      {161.0f,  1.0f, 0.11f, 0.56f, false},
-      {207.0f, 92.0f, 0.14f, 0.70f, true},
-      {259.0f, 93.0f, 0.09f, 0.58f, false},
-      {304.0f, 52.0f, 0.08f, 0.52f, true},
-  };
-  for (const RayEnd& ray : rays) {
-    ID2D1SolidColorBrush* brush = ray.warm ? humanLight : coolLight;
-    if (!brush) continue;
-    brush->SetOpacity(ray.alpha * lightStrength);
-    renderTarget_->DrawLine(
-        focus, D2D1::Point2F(ray.x * scaleX, ray.y * scaleY), brush,
-        ray.stroke * std::max(0.85f, std::min(scaleX, scaleY)));
-  }
-
-  // Individual points represent many small lights. Their placement is static,
-  // so the panel remains calm and consumes no animation timer.
-  struct LightPoint { float x; float y; float radius; float alpha; bool warm; };
-  constexpr LightPoint points[] = {
-      {98.0f,  8.0f, 0.80f, 0.52f, true},
-      {116.0f, 77.0f, 1.10f, 0.70f, true},
-      {139.0f, 11.0f, 0.68f, 0.42f, false},
-      {161.0f, 82.0f, 0.82f, 0.54f, true},
-      {184.0f,  6.0f, 1.05f, 0.68f, true},
-      {207.0f, 74.0f, 0.70f, 0.45f, false},
-      {215.0f,  7.0f, 1.12f, 0.78f, true},
-      {253.0f, 79.0f, 0.86f, 0.58f, true},
-      {276.0f, 47.0f, 0.62f, 0.43f, false},
-      {291.0f, 15.0f, 0.92f, 0.65f, true},
-  };
-  for (const LightPoint& point : points) {
-    ID2D1SolidColorBrush* brush = point.warm ? humanLight : coolLight;
-    if (!brush) continue;
-    const float radius = point.radius * std::max(0.9f, std::min(scaleX, scaleY));
-    if (point.radius >= 0.9f) {
-      brush->SetOpacity(point.alpha * 0.16f * lightStrength);
-      renderTarget_->FillEllipse(
-          D2D1::Ellipse(D2D1::Point2F(point.x * scaleX, point.y * scaleY),
-                        radius * 3.1f, radius * 3.1f), brush);
+  // One light source, anchored to the chest: softly merge the artwork into
+  // the panel rather than adding a separate badge, rails or another frame.
+  auto bloom = [&](D2D1_POINT_2F center, float radiusX, float radiusY,
+                    const D2D1_GRADIENT_STOP* stops, UINT32 count) {
+    ID2D1GradientStopCollection* collection = nullptr;
+    ID2D1RadialGradientBrush* brush = nullptr;
+    if (SUCCEEDED(renderTarget_->CreateGradientStopCollection(
+            stops, count, D2D1_GAMMA_2_2, D2D1_EXTEND_MODE_CLAMP, &collection))) {
+      renderTarget_->CreateRadialGradientBrush(
+          D2D1::RadialGradientBrushProperties(center, D2D1::Point2F(0, 0),
+                                               radiusX, radiusY), collection, &brush);
     }
-    brush->SetOpacity(point.alpha * lightStrength);
-    renderTarget_->FillEllipse(
-        D2D1::Ellipse(D2D1::Point2F(point.x * scaleX, point.y * scaleY),
-                      radius, radius), brush);
-  }
+    if (brush) renderTarget_->FillRoundedRectangle(panel, brush);
+    Release(brush);
+    Release(collection);
+  };
+  const D2D1_COLOR_F energy = neutral ? D2D1::ColorF(0.64f, 0.67f, 0.71f)
+      : warning ? D2D1::ColorF(0.95f, 0.26f, 0.39f)
+                : D2D1::ColorF(0.27f, 0.69f, 0.94f);
+  const D2D1_GRADIENT_STOP lightStops[] = {
+      {0.00f, D2D1::ColorF(energy.r, energy.g, energy.b, 0.19f * strength)},
+      {0.35f, D2D1::ColorF(energy.r, energy.g, energy.b, 0.085f * strength)},
+      {0.72f, D2D1::ColorF(energy.r, energy.g, energy.b, 0.025f * strength)},
+      {1.00f, D2D1::ColorF(energy.r, energy.g, energy.b, 0.0f)},
+  };
+  bloom(D2D1::Point2F(focusX, 36.0f), 116.0f, 68.0f,
+        lightStops, static_cast<UINT32>(std::size(lightStops)));
 
-  // Two original light trails follow the lower edge: gold for gathered human
-  // light and blue-silver for the giant's returning energy.
-  ID2D1PathGeometry* goldTrail = nullptr;
-  ID2D1GeometrySink* goldSink = nullptr;
-  if (humanLight && SUCCEEDED(d2dFactory_->CreatePathGeometry(&goldTrail)) &&
-      SUCCEEDED(goldTrail->Open(&goldSink))) {
-    goldSink->BeginFigure(D2D1::Point2F(68.0f * scaleX, height + 1.0f),
-                          D2D1_FIGURE_BEGIN_HOLLOW);
-    goldSink->AddBezier(D2D1::BezierSegment(
-        D2D1::Point2F(128.0f * scaleX, height - 1.0f),
-        D2D1::Point2F(164.0f * scaleX, height - 18.0f * scaleY),
-        D2D1::Point2F(width + 5.0f, height - 15.0f * scaleY)));
-    goldSink->EndFigure(D2D1_FIGURE_END_OPEN);
-    goldSink->Close();
-    humanLight->SetOpacity(0.24f * lightStrength);
-    renderTarget_->DrawGeometry(goldTrail, humanLight,
-                                1.05f * std::max(0.9f, std::min(scaleX, scaleY)));
-  }
-  Release(goldSink);
-  Release(goldTrail);
-
-  ID2D1PathGeometry* blueTrail = nullptr;
-  ID2D1GeometrySink* blueSink = nullptr;
-  if (coolLight && SUCCEEDED(d2dFactory_->CreatePathGeometry(&blueTrail)) &&
-      SUCCEEDED(blueTrail->Open(&blueSink))) {
-    blueSink->BeginFigure(D2D1::Point2F(81.0f * scaleX, height + 2.0f),
-                          D2D1_FIGURE_BEGIN_HOLLOW);
-    blueSink->AddBezier(D2D1::BezierSegment(
-        D2D1::Point2F(146.0f * scaleX, height - 2.0f),
-        D2D1::Point2F(194.0f * scaleX, height - 13.0f * scaleY),
-        D2D1::Point2F(width + 6.0f, height - 9.0f * scaleY)));
-    blueSink->EndFigure(D2D1_FIGURE_END_OPEN);
-    blueSink->Close();
-    coolLight->SetOpacity(0.17f * lightStrength);
-    renderTarget_->DrawGeometry(blueTrail, coolLight,
-                                0.82f * std::max(0.9f, std::min(scaleX, scaleY)));
-  }
-  Release(blueSink);
-  Release(blueTrail);
-
-  Release(coolLight);
-  Release(humanLight);
-  Release(hope);
-  Release(hopeCollection);
-  Release(dawn);
-  Release(dawnCollection);
+  // A broad, low-contrast reflection under the lower chest follows its
+  // silhouette. No visible curve or separate ornament crosses the footer.
+  const D2D1_COLOR_F reflection = neutral ? D2D1::ColorF(0.60f, 0.63f, 0.67f)
+      : warning ? D2D1::ColorF(0.82f, 0.26f, 0.35f)
+                : D2D1::ColorF(0.68f, 0.60f, 0.84f);
+  const D2D1_GRADIENT_STOP reflectionStops[] = {
+      {0.00f, D2D1::ColorF(reflection.r, reflection.g, reflection.b, 0.080f * strength)},
+      {0.42f, D2D1::ColorF(reflection.r, reflection.g, reflection.b, 0.033f * strength)},
+      {1.00f, D2D1::ColorF(reflection.r, reflection.g, reflection.b, 0.0f)},
+  };
+  bloom(D2D1::Point2F(focusX + 6.0f, std::min(height - 18.0f, 67.0f)),
+        68.0f, 29.0f, reflectionStops, static_cast<UINT32>(std::size(reflectionStops)));
 }
 
 void OverlayWindow::Paint() {
@@ -837,12 +843,12 @@ void OverlayWindow::Paint() {
           : D2D1::ColorF(0.022f, 0.032f, 0.092f, 1.0f)},
       {0.76f, stonePanel
           ? D2D1::ColorF(0.055f, 0.055f, 0.065f, 1.0f)
-          : D2D1::ColorF(0.105f, 0.042f, 0.195f, 1.0f)},
+          : D2D1::ColorF(0.047f, 0.040f, 0.108f, 1.0f)},
       {1.0f, stonePanel
           ? D2D1::ColorF(0.080f, 0.070f, 0.075f, 1.0f)
           : warningPanel
-              ? D2D1::ColorF(0.235f, 0.024f, 0.064f, 1.0f)
-              : D2D1::ColorF(0.185f, 0.065f, 0.135f, 1.0f)},
+              ? D2D1::ColorF(0.105f, 0.027f, 0.055f, 1.0f)
+              : D2D1::ColorF(0.070f, 0.045f, 0.100f, 1.0f)},
   };
   ID2D1GradientStopCollection* panelStopCollection = nullptr;
   ID2D1LinearGradientBrush* panelGradient = nullptr;
@@ -860,19 +866,21 @@ void OverlayWindow::Paint() {
   renderTarget_->FillRoundedRectangle(panel, panelBrush);
   if (settings_.themeEnabled) {
     DrawTributeLightBackground(size.width, size.height);
-    DrawThemedPanelImage(size.width, size.height);
+    if (settings_.displayMode != IndicatorDisplayMode::ProgressOnly) {
+      DrawThemedPanelImage(size.width, size.height);
+    }
   }
 
   D2D1_GRADIENT_STOP borderStops[] = {
       {0.0f, stonePanel
           ? D2D1::ColorF(0.34f, 0.37f, 0.41f, 0.75f)
-          : D2D1::ColorF(0.12f, 0.68f, 0.95f, 0.85f)},
+          : D2D1::ColorF(0.12f, 0.68f, 0.95f, 0.42f)},
       {0.50f, stonePanel
           ? D2D1::ColorF(0.42f, 0.42f, 0.44f, 0.62f)
-          : D2D1::ColorF(0.48f, 0.28f, 0.82f, 0.72f)},
+          : D2D1::ColorF(0.48f, 0.28f, 0.82f, 0.30f)},
       {1.0f, stonePanel
           ? D2D1::ColorF(0.43f, 0.40f, 0.37f, 0.70f)
-          : D2D1::ColorF(1.00f, 0.70f, 0.25f, 0.88f)},
+          : D2D1::ColorF(0.74f, 0.70f, 0.62f, 0.36f)},
   };
   ID2D1GradientStopCollection* borderStopCollection = nullptr;
   ID2D1LinearGradientBrush* borderGradient = nullptr;
@@ -888,11 +896,12 @@ void OverlayWindow::Paint() {
       ? static_cast<ID2D1Brush*>(borderGradient)
       : static_cast<ID2D1Brush*>(border);
   renderTarget_->DrawRoundedRectangle(panel, panelBorder,
-                                      settings_.themeEnabled ? 1.15f : 1.0f);
+                                      settings_.themeEnabled ? 0.85f : 1.0f);
 
   const bool showEnergy = settings_.themeEnabled &&
                           settings_.displayMode != IndicatorDisplayMode::ProgressOnly;
-  const bool showProgress = settings_.displayMode != IndicatorDisplayMode::EnergyOnly;
+  const bool showProgress = !settings_.themeEnabled ||
+                            settings_.displayMode != IndicatorDisplayMode::EnergyOnly;
   const bool warningState =
       energyState_.visual == EnergyVisualState::WarningRedBlink ||
       energyState_.visual == EnergyVisualState::CriticalRedFastBlink;
@@ -905,7 +914,7 @@ void OverlayWindow::Paint() {
     DrawEnergyIndicator(12.0f, 10.0f, 68.0f,
                         std::min(92.0f, size.height - 20.0f));
   }
-  const float contentLeft = showEnergy ? 88.0f : 16.0f;
+  const float contentLeft = showEnergy ? 94.0f : 16.0f;
   const float rightEdge = size.width - 12.0f;
   const CodexQuotaWindows quotaWindows = QuotaWindows();
   const RateWindow* weeklyWindow = quotaWindows.weekly;
@@ -1030,7 +1039,9 @@ void OverlayWindow::Paint() {
     drawIonField(rect, particleSeed, particleCount, strength);
   };
 
-  const float percentWidth = 64.0f;
+  // "100%" is wider than the usual two-digit value. Reserve its full width
+  // before placing the single bar, so its leading 1 is never clipped.
+  const float percentWidth = SingleQuotaPercentWidth(remaining);
   const bool ringProgress = showProgress &&
                             settings_.progressDisplayMode == ProgressDisplayMode::Ring;
   float barRight = rightEdge - percentWidth - 6.0f;
@@ -1055,6 +1066,8 @@ void OverlayWindow::Paint() {
         : std::wstring(L"--");
   };
   const std::wstring percent = percentText(window);
+  const wchar_t* singleQuotaLabel = weeklyWindow ? L"周额度"
+      : fiveHourWindow ? L"5小时额度" : L"当前额度";
 
   struct QuotaPalette {
     D2D1_COLOR_F deep;
@@ -1065,7 +1078,7 @@ void OverlayWindow::Paint() {
     D2D1_COLOR_F edge;
   };
   auto quotaPalette = [&](bool fiveHour, bool warning) {
-    if (stonePanel) {
+    if (stonePanel || displayStatus_ != DataStatus::Live) {
       return QuotaPalette{
           D2D1::ColorF(0.24f, 0.26f, 0.29f, 1.0f),
           D2D1::ColorF(0.48f, 0.50f, 0.52f, 1.0f),
@@ -1146,6 +1159,9 @@ void OverlayWindow::Paint() {
     sink->EndFigure(D2D1_FIGURE_END_OPEN);
     sink->Close();
     renderTarget_->DrawGeometry(geometry, brush, strokeWidth);
+    const float capRadius = strokeWidth * 0.5f;
+    renderTarget_->FillEllipse(D2D1::Ellipse(start, capRadius, capRadius), brush);
+    renderTarget_->FillEllipse(D2D1::Ellipse(end, capRadius, capRadius), brush);
     Release(sink);
     Release(geometry);
   };
@@ -1186,10 +1202,11 @@ void OverlayWindow::Paint() {
       drawRingArc(ring, value > 0.0f ? value * 3.6f : 0.0f,
                   ringGlow, strokeWidth + (fiveHour ? 5.0f : 4.0f));
     }
-    if (ringEnergy && available && value > 0.0f) {
+    if (ringEnergy && quota && value > 0.0f) {
+      ringEnergy->SetOpacity(available ? 1.0f : 0.30f);
       drawRingArc(ring, std::clamp(value, 0.0f, 100.0f) * 3.6f,
                   ringEnergy, strokeWidth);
-      if (ringHead && value < 99.9f) {
+      if (available && ringHead && value < 99.9f) {
         const float angle = -1.57079632679f + value * 0.06283185307f;
         const float headRadius = std::max(1.5f, strokeWidth * 0.43f);
         renderTarget_->FillEllipse(
@@ -1199,7 +1216,10 @@ void OverlayWindow::Paint() {
                           headRadius, headRadius), ringHead);
       }
     }
-    if (ringEdge) renderTarget_->DrawEllipse(ring, ringEdge, 0.75f);
+    if (ringEdge) {
+      ringEdge->SetOpacity(0.38f);
+      renderTarget_->DrawEllipse(ring, ringEdge, 0.55f);
+    }
     Release(ringEnergy);
     Release(ringStops);
     Release(ringHead);
@@ -1210,8 +1230,10 @@ void OverlayWindow::Paint() {
 
   auto drawQuotaLabel = [&](std::wstring_view value, const D2D1_RECT_F& rect,
                             const RateWindow* quota, bool fiveHour,
-                            DWRITE_TEXT_ALIGNMENT alignment) {
-    if (!textSmall_) return;
+                            DWRITE_TEXT_ALIGNMENT alignment,
+                            IDWriteTextFormat* requestedFormat = nullptr) {
+    IDWriteTextFormat* format = requestedFormat ? requestedFormat : textSmall_;
+    if (!format) return;
     const bool warning = quota && displayStatus_ == DataStatus::Live &&
                          quota->remainingPercent <= settings_.energy.warningThreshold;
     const QuotaPalette palette = quotaPalette(fiveHour, warning);
@@ -1220,9 +1242,12 @@ void OverlayWindow::Paint() {
         quota && displayStatus_ == DataStatus::Live ? palette.core
                                                     : D2D1::ColorF(0.48f, 0.52f, 0.58f, 1.0f),
         &labelBrush);
-    textSmall_->SetTextAlignment(alignment);
-    drawText(value, textSmall_, rect, labelBrush ? static_cast<ID2D1Brush*>(labelBrush)
+    format->SetTextAlignment(alignment);
+    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    drawText(value, format, rect, labelBrush ? static_cast<ID2D1Brush*>(labelBrush)
                                                 : static_cast<ID2D1Brush*>(muted));
+    format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     Release(labelBrush);
   };
 
@@ -1243,7 +1268,7 @@ void OverlayWindow::Paint() {
         trackBrush ? static_cast<ID2D1Brush*>(trackBrush)
                    : static_cast<ID2D1Brush*>(track));
 
-    if (available && value > 0.0f) {
+    if (quota && value > 0.0f) {
       const float fillRight = barRect.left +
           (barRect.right - barRect.left) * std::clamp(value, 0.0f, 100.0f) / 100.0f;
       const float fillWidth = std::max(1.0f, fillRight - barRect.left);
@@ -1277,6 +1302,7 @@ void OverlayWindow::Paint() {
             stopCollection, &energy);
       }
       if (energy) {
+        energy->SetOpacity(available ? 1.0f : 0.30f);
         renderTarget_->FillRoundedRectangle(D2D1::RoundedRect(
             D2D1::RectF(barRect.left, barRect.top, fillRight, barRect.bottom),
             radius, radius), energy);
@@ -1284,7 +1310,7 @@ void OverlayWindow::Paint() {
       renderTarget_->PushAxisAlignedClip(
           D2D1::RectF(barRect.left, barRect.top, fillRight, barRect.bottom),
           D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-      if (streak && fillWidth > 30.0f) {
+      if (available && streak && fillWidth > 30.0f) {
         streak->SetOpacity(fiveHour ? 0.42f : 0.24f);
         for (int index = 1; index <= 3; ++index) {
           const float x = barRect.left + fillWidth * static_cast<float>(index) / 4.0f;
@@ -1294,7 +1320,7 @@ void OverlayWindow::Paint() {
         }
       }
       renderTarget_->PopAxisAlignedClip();
-      if (head && fillWidth > 4.0f) {
+      if (available && head && fillWidth > 4.0f) {
         renderTarget_->FillEllipse(
             D2D1::Ellipse(D2D1::Point2F(fillRight - 1.0f,
                                         (barRect.top + barRect.bottom) * 0.5f),
@@ -1311,6 +1337,17 @@ void OverlayWindow::Paint() {
     Release(trackBrush);
   };
 
+  auto drawQuotaRow = [&](const wchar_t* label, const RateWindow* quota,
+                          bool fiveHour, float left, float rowTop) {
+    drawQuotaLabel(label, D2D1::RectF(left, rowTop, left + 34.0f, rowTop + 17.0f),
+                   quota, fiveHour, DWRITE_TEXT_ALIGNMENT_LEADING);
+    drawQuotaLabel(percentText(quota),
+                   D2D1::RectF(left + 37.0f, rowTop - 1.0f, rightEdge, rowTop + 18.0f),
+                   quota, fiveHour, DWRITE_TEXT_ALIGNMENT_TRAILING, textValue_);
+    drawText(L"重置 " + resetCountdown(quota), textSmall_,
+             D2D1::RectF(left, rowTop + 17.0f, rightEdge, rowTop + 29.0f), muted);
+  };
+
   if (ringProgress) {
     const float diameter = settings_.sizeMode == HudSizeMode::Compact
         ? (dualQuota ? 56.0f : 52.0f)
@@ -1319,12 +1356,14 @@ void OverlayWindow::Paint() {
                : (dualQuota ? 66.0f : 62.0f));
     const float top = settings_.sizeMode == HudSizeMode::Compact ? 7.0f
         : (settings_.sizeMode == HudSizeMode::Expanded ? 17.0f : 11.0f);
-    const float ringLeft = showEnergy ? (dualQuota ? 104.0f : 110.0f) : contentLeft;
+    const float ringLeft = CalculateHudRingLeft(contentLeft, showEnergy);
     const D2D1_ELLIPSE outerRing = D2D1::Ellipse(
         D2D1::Point2F(ringLeft + diameter * 0.5f + 1.0f,
                       top + diameter * 0.5f),
         diameter * 0.5f - 3.2f, diameter * 0.5f - 3.2f);
-    infoLeft = ringLeft + diameter + 10.0f;
+    // Preserve the full-size values in compact dual mode after moving the
+    // ring clear of the chest; only tighten the ring-to-details gutter.
+    infoLeft = ringLeft + diameter + (dualQuota ? 4.0f : 10.0f);
     drawQuotaRing(outerRing, dualQuota ? weeklyWindow : window, false,
                   dualQuota ? 4.8f : 5.6f);
     if (dualQuota) {
@@ -1333,74 +1372,58 @@ void OverlayWindow::Paint() {
           outerRing.point, innerRadius, innerRadius);
       drawQuotaRing(innerRing, fiveHourWindow, true, 4.0f);
 
-      if (textMedium_) {
-        textMedium_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-        textMedium_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-      }
       const std::wstring innerPercent = percentText(fiveHourWindow, false);
       drawQuotaLabel(innerPercent,
                      D2D1::RectF(innerRing.point.x - innerRadius + 2.0f,
-                                 innerRing.point.y - 12.0f,
+                                 innerRing.point.y - 13.0f,
                                  innerRing.point.x + innerRadius - 2.0f,
-                                 innerRing.point.y + 3.0f),
-                     fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_CENTER);
+                                 innerRing.point.y + 4.0f),
+                     fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_CENTER, textMedium_);
       drawQuotaLabel(L"5H",
                      D2D1::RectF(innerRing.point.x - innerRadius + 2.0f,
                                  innerRing.point.y + 1.0f,
                                  innerRing.point.x + innerRadius - 2.0f,
                                  innerRing.point.y + 14.0f),
                      fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_CENTER);
-      if (textMedium_) {
-        textMedium_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-        textMedium_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-      }
-      const std::wstring weeklyLine = L"周 " + percentText(weeklyWindow) +
-                                      L" · " + resetCountdown(weeklyWindow);
-      const std::wstring fiveHourLine = L"5H " + percentText(fiveHourWindow) +
-                                        L" · " + resetCountdown(fiveHourWindow);
-      drawQuotaLabel(weeklyLine,
-                     D2D1::RectF(infoLeft, top + 7.0f, rightEdge,
-                                 top + 23.0f),
-                     weeklyWindow, false, DWRITE_TEXT_ALIGNMENT_LEADING);
-      drawQuotaLabel(fiveHourLine,
-                     D2D1::RectF(infoLeft, top + 27.0f, rightEdge,
-                                 top + 43.0f),
-                     fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_LEADING);
+      const float rowGap = settings_.sizeMode == HudSizeMode::Compact ? 28.0f : 35.0f;
+      drawQuotaRow(L"周额度", weeklyWindow, false, infoLeft, top - 1.0f);
+      drawQuotaRow(L"5小时", fiveHourWindow, true, infoLeft, top - 1.0f + rowGap);
     } else {
-      if (textRing_) {
-        textRing_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-        textRing_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+      IDWriteTextFormat* centerFormat = percent.size() >= 4 ? textValue_ : textRing_;
+      if (centerFormat) {
+        centerFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        centerFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
       }
-      drawIonText(percent, textRing_,
+      drawIonText(percent, centerFormat,
                   D2D1::RectF(outerRing.point.x - outerRing.radiusX - 2.0f,
                               outerRing.point.y - outerRing.radiusY + 1.0f,
                               outerRing.point.x + outerRing.radiusX + 2.0f,
                               outerRing.point.y + outerRing.radiusY - 1.0f),
                   1.0f, 0x7a31u + static_cast<UINT32>(std::max(0.0f, remaining)), 0);
+      if (centerFormat) {
+        centerFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+        centerFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+      }
     }
     barRight = rightEdge;
   }
 
   if (!ringProgress && showProgress) {
     if (dualQuota) {
-      const float labelWidth = 18.0f;
-      const float pairPercentWidth = 38.0f;
-      const float pairBarLeft = contentLeft + labelWidth;
-      const float pairBarRight = rightEdge - pairPercentWidth;
-      drawQuotaBar(D2D1::RectF(pairBarLeft, 10.0f, pairBarRight, 22.0f),
-                   weeklyWindow, false);
-      drawQuotaBar(D2D1::RectF(pairBarLeft, 28.0f, pairBarRight, 40.0f),
-                   fiveHourWindow, true);
-      drawQuotaLabel(L"周", D2D1::RectF(contentLeft, 8.0f, pairBarLeft - 3.0f, 24.0f),
-                     weeklyWindow, false, DWRITE_TEXT_ALIGNMENT_LEADING);
-      drawQuotaLabel(L"5H", D2D1::RectF(contentLeft, 26.0f, pairBarLeft - 3.0f, 42.0f),
-                     fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_LEADING);
-      drawQuotaLabel(percentText(weeklyWindow),
-                     D2D1::RectF(pairBarRight + 4.0f, 8.0f, rightEdge, 24.0f),
-                     weeklyWindow, false, DWRITE_TEXT_ALIGNMENT_TRAILING);
-      drawQuotaLabel(percentText(fiveHourWindow),
-                     D2D1::RectF(pairBarRight + 4.0f, 26.0f, rightEdge, 42.0f),
-                     fiveHourWindow, true, DWRITE_TEXT_ALIGNMENT_TRAILING);
+      const float gap = settings_.sizeMode == HudSizeMode::Compact ? 29.0f : 35.0f;
+      auto drawBarRow = [&](const wchar_t* label, const RateWindow* quota, bool fiveHour, float rowTop) {
+        drawQuotaLabel(label, D2D1::RectF(contentLeft, rowTop, contentLeft + 32.0f, rowTop + 17.0f),
+                       quota, fiveHour, DWRITE_TEXT_ALIGNMENT_LEADING);
+        drawText(L"重置 " + resetCountdown(quota), textSmall_,
+                 D2D1::RectF(contentLeft + 40.0f, rowTop + 3.0f, rightEdge - 46.0f, rowTop + 16.0f), muted);
+        drawQuotaLabel(percentText(quota),
+                       D2D1::RectF(rightEdge - 46.0f, rowTop - 1.0f, rightEdge, rowTop + 18.0f),
+                       quota, fiveHour, DWRITE_TEXT_ALIGNMENT_TRAILING, textValue_);
+        drawQuotaBar(D2D1::RectF(contentLeft, rowTop + 20.0f, rightEdge, rowTop + 27.0f),
+                     quota, fiveHour);
+      };
+      drawBarRow(L"周额度", weeklyWindow, false, 6.0f);
+      drawBarRow(L"5小时", fiveHourWindow, true, 6.0f + gap);
       barRight = rightEdge;
     } else {
       drawQuotaBar(D2D1::RectF(contentLeft, 18.0f, barRight, 35.0f),
@@ -1408,8 +1431,13 @@ void OverlayWindow::Paint() {
     }
   }
 
+  if (!showProgress && dualQuota) {
+    const float rowGap = settings_.sizeMode == HudSizeMode::Compact ? 28.0f : 35.0f;
+    drawQuotaRow(L"周额度", weeklyWindow, false, contentLeft, 6.0f);
+    drawQuotaRow(L"5小时", fiveHourWindow, true, contentLeft, 6.0f + rowGap);
+  }
   if (textLarge_) textLarge_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-  if (!ringProgress && showProgress && !dualQuota) {
+  if (!ringProgress && !dualQuota) {
     const D2D1_RECT_F percentRect =
         D2D1::RectF(rightEdge - percentWidth, 7.0f, rightEdge, 45.0f);
     drawIonText(percent, textLarge_, percentRect, 1.0f,
@@ -1427,47 +1455,41 @@ void OverlayWindow::Paint() {
       ? dormantIonText
       : (warningState ? warningIonMuted : ionMuted);
   if (secondaryText) secondaryText->SetOpacity(stonePanel ? 0.78f : 0.94f);
-  if (!dualQuota || !showProgress) {
-    const float row2 = ringProgress ? 17.0f
-        : (settings_.sizeMode == HudSizeMode::Compact ? 45.0f : 49.0f);
-    const std::wstring countdown = L"RESET  " + resetCountdown(window);
+  if (!dualQuota) {
+    // A single quota gets a complete, centered information group. No empty
+    // five-hour row, and no countdown/date overlap in the compact bar layout.
+    const float row2 = ringProgress
+        ? (settings_.sizeMode == HudSizeMode::Compact ? 23.0f
+            : settings_.sizeMode == HudSizeMode::Expanded ? 43.0f : 33.0f)
+        : (settings_.sizeMode == HudSizeMode::Compact ? 39.0f : 44.0f);
+    drawQuotaLabel(singleQuotaLabel,
+        D2D1::RectF(infoLeft, ringProgress ? row2 - 17.0f : 1.0f,
+                    ringProgress ? rightEdge : barRight,
+                    ringProgress ? row2 : 18.0f),
+        window, false, ringProgress ? DWRITE_TEXT_ALIGNMENT_CENTER
+                                   : DWRITE_TEXT_ALIGNMENT_LEADING);
+    const std::wstring countdown = L"重置  " + resetCountdown(window);
     const std::wstring absolute = resetAbsolute(window);
     const D2D1_RECT_F countdownRect =
-        D2D1::RectF(infoLeft, row2, barRight, row2 + 18);
+        D2D1::RectF(infoLeft, row2, rightEdge, row2 + 16.0f);
     if (textSmall_) {
-      textSmall_->SetTextAlignment(ringProgress
-          ? DWRITE_TEXT_ALIGNMENT_TRAILING
-          : DWRITE_TEXT_ALIGNMENT_LEADING);
+      textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     drawIonText(countdown, textSmall_, countdownRect, 0.64f,
                 0xc013u + static_cast<UINT32>(countdown.size()), 2);
-    if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-    const float absoluteRow = ringProgress ? row2 + 16.0f : row2;
+    const float absoluteRow = row2 + 15.0f;
     drawText(absolute, textSmall_,
-             D2D1::RectF(std::max(infoLeft, rightEdge - 105), absoluteRow,
-                         rightEdge, absoluteRow + 18),
+             D2D1::RectF(infoLeft, absoluteRow, rightEdge, absoluteRow + 14.0f),
              secondaryText ? static_cast<ID2D1Brush*>(secondaryText)
                            : static_cast<ID2D1Brush*>(muted));
-  } else if (!ringProgress) {
-    const std::wstring countdown = L"周 " + resetCountdown(weeklyWindow) +
-                                   L"  ·  5H " + resetCountdown(fiveHourWindow);
-    if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-    drawIonText(countdown, textSmall_,
-                D2D1::RectF(contentLeft, 44.0f, rightEdge, 61.0f),
-                0.64f, 0xd517u + static_cast<UINT32>(countdown.size()), 2);
-    if (settings_.sizeMode != HudSizeMode::Compact) {
-      const std::wstring absolute = L"周 " + resetAbsolute(weeklyWindow) +
-                                    L"  ·  5H " + resetAbsolute(fiveHourWindow);
-      if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-      drawText(absolute, textSmall_,
-               D2D1::RectF(contentLeft, 61.0f, rightEdge, 78.0f),
-               secondaryText ? static_cast<ID2D1Brush*>(secondaryText)
-                             : static_cast<ID2D1Brush*>(muted));
-    }
+  } else if (settings_.sizeMode == HudSizeMode::Expanded) {
+    const std::wstring absolute = L"周 " + resetAbsolute(weeklyWindow) +
+                                  L"  ·  5H " + resetAbsolute(fiveHourWindow);
+    drawText(absolute, textSmall_, D2D1::RectF(contentLeft, 88.0f, rightEdge, 102.0f), muted);
   }
   if (textSmall_) textSmall_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 
-  const float row3 = size.height - (settings_.sizeMode == HudSizeMode::Expanded ? 47.0f : 26.0f);
+  const float row3 = size.height - (settings_.sizeMode == HudSizeMode::Expanded ? 39.0f : 23.0f);
   D2D1_COLOR_F statusColor = D2D1::ColorF(0.98f, 0.58f, 0.18f, 1.0f);
   if (displayStatus_ == DataStatus::Live) {
     if (warningState) {
@@ -1506,19 +1528,47 @@ void OverlayWindow::Paint() {
   }
   drawText(statusLine, textSmall_, statusRect, statusBrush);
   const HudControlLayout controls = CalculateHudControlLayout(size.width, size.height);
-  drawIonText(L"⚙", textMedium_,
-              D2D1::RectF(controls.settings.left + 2.0f, size.height - 31.0f,
-                          controls.settings.right - 1.0f, size.height - 5.0f),
-              0.54f, 0x6e21u, 0);
-  drawIonText(L"—", textMedium_,
-              D2D1::RectF(controls.minimize.left + 2.0f, size.height - 31.0f,
-                          rightEdge, size.height - 5.0f),
-              0.54f, 0x9d42u, 0);
+  ID2D1SolidColorBrush* controlBrush = nullptr;
+  renderTarget_->CreateSolidColorBrush(stonePanel
+      ? D2D1::ColorF(0.65f, 0.68f, 0.72f)
+      : D2D1::ColorF(0.66f, 0.78f, 0.90f), &controlBrush);
+  if (controlBrush) {
+    const auto drawControl = [&](HudControl control, const HudControlRect& rect) {
+      const float centerX = (rect.left + rect.right) * 0.5f;
+      const float centerY = (rect.top + rect.bottom) * 0.5f;
+      const bool hovered = hoveredControl_ == control;
+      controlBrush->SetOpacity(hovered ? 0.16f : 0.035f);
+      renderTarget_->FillRoundedRectangle(D2D1::RoundedRect(
+          D2D1::RectF(centerX - 11.0f, centerY - 10.0f,
+                      centerX + 11.0f, centerY + 10.0f), 4, 4), controlBrush);
+      controlBrush->SetOpacity(hovered ? 1.0f : 0.72f);
+      if (control == HudControl::Minimize) {
+        renderTarget_->DrawLine(D2D1::Point2F(centerX - 5, centerY),
+                                D2D1::Point2F(centerX + 5, centerY), controlBrush, 1.4f);
+      } else {
+        // Vector gear: its visible center is the same center used by hit-testing.
+        renderTarget_->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(centerX, centerY),
+                                                4.0f, 4.0f), controlBrush, 1.1f);
+        renderTarget_->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(centerX, centerY),
+                                                1.35f, 1.35f), controlBrush, 1.0f);
+        for (int tooth = 0; tooth < 8; ++tooth) {
+          const float angle = static_cast<float>(tooth) * 0.78539816f;
+          const float x = std::cos(angle), y = std::sin(angle);
+          renderTarget_->DrawLine(D2D1::Point2F(centerX + x * 4.0f, centerY + y * 4.0f),
+                                  D2D1::Point2F(centerX + x * 5.6f, centerY + y * 5.6f),
+                                  controlBrush, 1.3f);
+        }
+      }
+    };
+    drawControl(HudControl::Settings, controls.settings);
+    drawControl(HudControl::Minimize, controls.minimize);
+    Release(controlBrush);
+  }
 
-  if (settings_.sizeMode == HudSizeMode::Expanded && dualQuota) {
+  if (settings_.sizeMode == HudSizeMode::Expanded && dualQuota && showProgress) {
     const std::wstring detail = settings_.progressDisplayMode == ProgressDisplayMode::Ring
-        ? L"深色外圈：周额度  ·  亮色内圈：5小时额度"
-        : L"深色上条：周额度  ·  亮色下条：5小时额度";
+        ? L"周·深色外圈   5H·亮色内圈"
+        : L"周·深色上条   5H·亮色下条";
     if (secondaryText) secondaryText->SetOpacity(stonePanel ? 0.78f : 0.94f);
     drawText(detail, textSmall_, D2D1::RectF(contentLeft, size.height - 25,
                                              rightEdge - 55, size.height - 7),
@@ -1562,6 +1612,7 @@ void OverlayWindow::Paint() {
 }
 
 void OverlayWindow::StartCodex() {
+  if (demoMode_) return;
   displayStatus_ = DataStatus::Connecting;
   energyState_ = ComputeEnergyState(std::nullopt, settings_.energy);
   const HWND target = hwnd_;
@@ -1574,42 +1625,62 @@ void OverlayWindow::StartCodex() {
         auto* message = new AppServerError(std::move(error));
         if (!PostMessageW(target, WM_MONITOR_SERVER_ERROR, 0, reinterpret_cast<LPARAM>(message))) delete message;
       });
+  // Start() also sends the first quota request. It needs the same watchdog as
+  // later polls, otherwise a silent initial request can remain stuck forever.
+  if (appServer_.RequestInFlight()) SetTimer(hwnd_, kRequestTimeoutTimer, 15000, nullptr);
+  UpdateTooltips();
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
-void OverlayWindow::RequestRefresh(bool) {
+void OverlayWindow::RequestRefresh(bool userInitiated) {
+  if (demoMode_) return;
   if (!appServer_.IsRunning()) {
     StartCodex();
     return;
   }
   if (appServer_.RequestRateLimits()) {
     SetTimer(hwnd_, kRequestTimeoutTimer, 15000, nullptr);
+    if (userInitiated) InvalidateRect(hwnd_, nullptr, FALSE);
   }
 }
 
 void OverlayWindow::ApplySnapshot(RateLimitSnapshot snapshot) {
-  KillTimer(hwnd_, kRequestTimeoutTimer);
-  displayStatus_ = DataStatus::Live;
+  // An unsolicited sparse notification is not the reply to an in-flight poll.
+  if (!appServer_.RequestInFlight()) KillTimer(hwnd_, kRequestTimeoutTimer);
+  // Spark-only notifications neither replace main data nor make its cache
+  // appear freshly synchronized. The scheduled complete read still runs.
+  if (snapshot.sparseUpdate && !HasCodexQuotaUpdate(snapshot)) return;
+  const bool fullRead = !snapshot.sparseUpdate;
+  const bool firstSnapshot = !snapshot_;
   if (snapshot.sparseUpdate && snapshot_) {
     snapshot = MergeSparseRateLimitSnapshot(*snapshot_, snapshot);
   }
   snapshot_ = std::move(snapshot);
   const RateWindow* limitingWindow = LimitingQuotaWindow();
-  const double current = limitingWindow ? limitingWindow->remainingPercent : 0.0;
-  NotifyThresholds(previousRemaining_, current);
-  previousRemaining_ = current;
+  displayStatus_ = limitingWindow ? DataStatus::Live : DataStatus::DataUnavailable;
+  snapshot_->status = displayStatus_;
+  if (limitingWindow) {
+    const double current = limitingWindow->remainingPercent;
+    NotifyThresholds(previousRemaining_, current);
+    previousRemaining_ = current;
+  } else {
+    // Missing quota data is not zero and must not send exhaustion alerts.
+    previousRemaining_ = 101.0;
+  }
   energyState_ = ComputeEnergyState(limitingWindow
       ? std::optional<double>(limitingWindow->remainingPercent) : std::nullopt,
       settings_.energy);
   blinkOn_ = true;
   ConfigureBlinkTimer();
-  ScheduleNextRefresh(true);
+  // A busy notification stream must not postpone full reads indefinitely.
+  if (!demoMode_ && (fullRead || firstSnapshot)) ScheduleNextRefresh(true);
   UpdateTrayTooltip();
+  UpdateTooltips();
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 void OverlayWindow::ApplyServerError(AppServerError error) {
-  KillTimer(hwnd_, kRequestTimeoutTimer);
+  if (!appServer_.RequestInFlight()) KillTimer(hwnd_, kRequestTimeoutTimer);
   switch (error.kind) {
     case AppServerErrorKind::CliMissing:
     case AppServerErrorKind::LaunchFailed: displayStatus_ = DataStatus::CliMissing; break;
@@ -1628,18 +1699,20 @@ void OverlayWindow::ApplyServerError(AppServerError error) {
   ConfigureBlinkTimer();
   ScheduleNextRefresh(false);
   UpdateTrayTooltip();
+  UpdateTooltips();
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 void OverlayWindow::ConfigureBlinkTimer() {
   KillTimer(hwnd_, kBlinkTimer);
   blinkOn_ = true;
-  if (energyState_.fullCycleMs > 0) {
+  if (!hidden_ && energyState_.fullCycleMs > 0) {
     SetTimer(hwnd_, kBlinkTimer, static_cast<UINT>(std::max(100, energyState_.fullCycleMs / 2)), nullptr);
   }
 }
 
 void OverlayWindow::ScheduleNextRefresh(bool success) {
+  if (demoMode_) return;
   KillTimer(hwnd_, kRefreshTimer);
   if (success) consecutiveFailures_ = 0;
   else consecutiveFailures_ = std::min(consecutiveFailures_ + 1, 5);
@@ -1682,7 +1755,7 @@ void OverlayWindow::ResizeForMode() {
   const UINT dpi = hwnd_ ? GetDpiForWindow(hwnd_) : GetDpiForSystem();
   const float uiScale = HudScale(settings_.scalePercent);
   const ProgressDisplayMode layoutProgressMode =
-      settings_.displayMode == IndicatorDisplayMode::EnergyOnly
+      settings_.themeEnabled && settings_.displayMode == IndicatorDisplayMode::EnergyOnly
           ? ProgressDisplayMode::Bar
           : settings_.progressDisplayMode;
   const int logicalWidth = static_cast<int>(std::lround(
@@ -1693,6 +1766,7 @@ void OverlayWindow::ResizeForMode() {
   SetWindowPos(hwnd_, nullptr, 0, 0, width, height,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   DiscardGraphicsResources();
+  if (tooltip_) UpdateTooltips();
 }
 
 void OverlayWindow::PositionInitially() {
@@ -1729,12 +1803,118 @@ void OverlayWindow::ClampToWorkArea(RECT* rect) const {
 }
 
 void OverlayWindow::SaveWindowPosition() {
-  if (!hwnd_) return;
+  if (!hwnd_ || demoMode_) return;
   RECT rect{};
   if (GetWindowRect(hwnd_, &rect)) {
     settings_.x = rect.left;
     settings_.y = rect.top;
     SaveSettings(settings_);
+  }
+}
+
+void OverlayWindow::SetHidden(bool hidden) {
+  hidden_ = hidden;
+  hoveredControl_ = HudControl::None;
+  ConfigureBlinkTimer();
+  if (hidden_) {
+    KillTimer(hwnd_, kDataAgeTimer);
+    if (tooltip_) SendMessageW(tooltip_, TTM_POP, 0, 0);
+    ShowWindow(hwnd_, demoMode_ ? SW_MINIMIZE : SW_HIDE);
+    return;
+  }
+  if (demoMode_) ShowWindow(hwnd_, SW_RESTORE);
+  RECT rect{};
+  GetWindowRect(hwnd_, &rect);
+  ClampToWorkArea(&rect);
+  if (!demoMode_) ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
+  SetWindowPos(hwnd_, settings_.alwaysOnTop ? HWND_TOPMOST : HWND_TOP,
+               rect.left, rect.top, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+  if (!demoMode_) SetTimer(hwnd_, kDataAgeTimer, 30000, nullptr);
+  RefreshDataAge();
+}
+
+void OverlayWindow::RefreshDataAge() {
+  if (!demoMode_ && snapshot_ && displayStatus_ == DataStatus::Live &&
+      IsSnapshotStale(*snapshot_, std::chrono::system_clock::now(),
+                      std::chrono::seconds(std::max(120, settings_.refreshSeconds * 2)))) {
+    displayStatus_ = DataStatus::Stale;
+    energyState_ = ComputeEnergyState(std::nullopt, settings_.energy);
+    ConfigureBlinkTimer();
+  }
+  UpdateTrayTooltip();
+  UpdateTooltips();
+  InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void OverlayWindow::UpdateTooltips() {
+  if (!hwnd_) return;
+  if (!tooltip_) {
+    INITCOMMONCONTROLSEX init{sizeof(init), ICC_WIN95_CLASSES};
+    InitCommonControlsEx(&init);
+    tooltip_ = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+        WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, hwnd_, nullptr, instance_, nullptr);
+    if (!tooltip_) return;
+    SendMessageW(tooltip_, TTM_SETMAXTIPWIDTH, 0, 340);
+    SendMessageW(tooltip_, TTM_SETDELAYTIME, TTDT_INITIAL, 550);
+    for (UINT_PTR id = 1; id <= 3; ++id) {
+      TOOLINFOW tool{};
+      tool.cbSize = sizeof(tool);
+      tool.hwnd = hwnd_;
+      tool.uId = id;
+      tool.uFlags = TTF_SUBCLASS;
+      tool.lpszText = const_cast<wchar_t*>(L"");
+      SendMessageW(tooltip_, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
+    }
+  }
+
+  quotaTooltip_ = demoMode_ ? L"精修预览 · 以下均为示例数据\n" : L"Codex 额度\n";
+  const CodexQuotaWindows windows = QuotaWindows();
+  auto appendWindow = [&](const wchar_t* label, const RateWindow* quota) {
+    quotaTooltip_ += label;
+    if (!quota) { quotaTooltip_ += L"：暂无数据\n"; return; }
+    wchar_t percent[32]{};
+    swprintf_s(percent, L"：%.0f%% 剩余", quota->remainingPercent);
+    quotaTooltip_ += percent;
+    if (quota->resetsAt) quotaTooltip_ += L"  |  重置 " + FormatLocalResetTime(*quota->resetsAt);
+    quotaTooltip_ += L"\n";
+  };
+  appendWindow(ShowsFiveHourQuota() ? L"周额度 · 深色外圈 / 上条" : L"周额度", windows.weekly);
+  if (ShowsFiveHourQuota()) {
+    appendWindow(L"5小时 · 亮色内圈 / 下条", windows.fiveHour);
+  } else if (windows.weekly && !windows.fiveHour && displayStatus_ == DataStatus::Live) {
+    quotaTooltip_ += L"主额度当前仅返回周周期，已自动使用单圈 / 单条。\n";
+  } else if (windows.fiveHour && settings_.quotaDisplayMode == QuotaDisplayMode::WeeklyAndFiveHour) {
+    appendWindow(L"5小时额度", windows.fiveHour);
+  }
+  if (displayStatus_ != DataStatus::Live) quotaTooltip_ += L"暂不可用；如有数值，为上次成功读取的记录。\n";
+  if (snapshot_ && !demoMode_) {
+    quotaTooltip_ += L"最近同步：" + FormatLocalResetTime(snapshot_->lastSuccessAt) + L"\n";
+    if (!snapshot_->planType.empty()) quotaTooltip_ += L"套餐：" + Utf8ToWide(snapshot_->planType) + L"\n";
+  }
+  quotaTooltip_ += L"双击收起 · 右键设置 · 拖动调整位置";
+  RECT client{};
+  GetClientRect(hwnd_, &client);
+  const float scale = GetDpiForWindow(hwnd_) / 96.0f * HudScale(settings_.scalePercent);
+  const auto layout = CalculateHudControlLayout(client.right / scale, client.bottom / scale);
+  for (UINT_PTR id = 1; id <= 3; ++id) {
+    TOOLINFOW tool{};
+    tool.cbSize = sizeof(tool);
+    tool.hwnd = hwnd_;
+    tool.uId = id;
+    if (id == 1) {
+      tool.rect = {0, 0, client.right, static_cast<LONG>(layout.settings.top * scale)};
+      tool.lpszText = quotaTooltip_.data();
+    } else {
+      const auto& rect = id == 2 ? layout.settings : layout.minimize;
+      tool.rect = {static_cast<LONG>(rect.left * scale), static_cast<LONG>(rect.top * scale),
+                   static_cast<LONG>(rect.right * scale), static_cast<LONG>(rect.bottom * scale)};
+      tool.lpszText = const_cast<wchar_t*>(id == 2 ? L"设置 · 额度形式、尺寸与主题"
+          : demoMode_ ? L"最小化预览 · 从任务栏恢复"
+                      : L"最小化到托盘 · 点击托盘图标恢复");
+    }
+    SendMessageW(tooltip_, TTM_NEWTOOLRECTW, 0, reinterpret_cast<LPARAM>(&tool));
+    SendMessageW(tooltip_, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>(&tool));
   }
 }
 
@@ -1748,7 +1928,7 @@ const RateWindow* OverlayWindow::PrimaryQuotaWindow() const {
   if (windows.weekly) return windows.weekly;
   if (settings_.quotaDisplayMode == QuotaDisplayMode::WeeklyOnly) return nullptr;
   if (windows.fiveHour) return windows.fiveHour;
-  return &snapshot_->windows.front();
+  return windows.other;
 }
 
 bool OverlayWindow::ShowsFiveHourQuota() const {
@@ -1767,50 +1947,41 @@ const RateWindow* OverlayWindow::LimitingQuotaWindow() const {
 }
 
 std::wstring OverlayWindow::CurrentStatusLine() const {
-  if (displayStatus_ != DataStatus::Live) {
-    std::wstring value = DataStatusText(displayStatus_);
-    if (settings_.sizeMode != HudSizeMode::Compact && snapshot_ &&
-        snapshot_->lastSuccessAt.time_since_epoch().count() != 0) {
-      value += L" · 更新 " + FormatLocalResetTime(snapshot_->lastSuccessAt);
-    }
-    return value;
-  }
-  if (demoMode_) {
-    return settings_.sizeMode == HudSizeMode::Compact
-        ? (ShowsFiveHourQuota() ? L"DEMO · 示例数据 · 周+5H"
-                                : L"DEMO · 示例数据 · 仅周")
-        : (ShowsFiveHourQuota() ? L"DEMO · 示例数据  周额度 + 5小时额度"
-                                : L"DEMO · 示例数据  仅周额度");
-  }
-  const RateWindow* window = LimitingQuotaWindow();
-  if (!window) return L"DATA UNAVAILABLE";
+  if (demoMode_) return L"预览 · 示例数据";
   std::wstring state;
-  if (settings_.sizeMode == HudSizeMode::Compact) {
-    if (window->remainingPercent <= 0) state = L"STONE";
-    else if (window->remainingPercent < 10) state = L"CRITICAL";
-    else if (window->remainingPercent <= 30) state = L"WARNING";
-    else state = L"LIVE";
-    state += ShowsFiveHourQuota() ? L" · 周+5H" : L" · " + WindowLabel(*window);
-    if (snapshot_ && !snapshot_->planType.empty()) {
-      state += L" · " + Utf8ToWide(snapshot_->planType);
+  if (displayStatus_ != DataStatus::Live) {
+    switch (displayStatus_) {
+      case DataStatus::Connecting: state = L"连接中"; break;
+      case DataStatus::Stale: state = L"数据过期"; break;
+      case DataStatus::Offline: state = L"离线"; break;
+      case DataStatus::CliMissing: state = L"缺少 CLI"; break;
+      case DataStatus::NotLoggedIn: state = L"未登录"; break;
+      case DataStatus::NetworkUnavailable: state = L"网络异常"; break;
+      case DataStatus::DataUnavailable: state = L"暂不可用"; break;
+      default: state = L"待同步"; break;
     }
-    return state;
+  } else {
+    const RateWindow* quota = LimitingQuotaWindow();
+    if (!quota) return L"暂无额度数据";
+    // The label follows the same state machine as the chest lens, including
+    // the user's custom threshold and the inclusive 10% critical boundary.
+    switch (energyState_.visual) {
+      case EnergyVisualState::NormalBlue: state = L"正常"; break;
+      case EnergyVisualState::WarningRedBlink: state = L"警戒"; break;
+      case EnergyVisualState::CriticalRedFastBlink: state = L"危急"; break;
+      case EnergyVisualState::Stone: state = L"石化"; break;
+      default: state = quota->remainingPercent <= 0.0 ? L"额度耗尽" : L"待同步"; break;
+    }
   }
-  if (window->remainingPercent <= 0) state = L"STONE · 额度耗尽";
-  else if (window->remainingPercent < 10) state = L"CRITICAL · 严重";
-  else if (window->remainingPercent <= 30) state = L"WARNING · 额度不足";
-  else state = L"LIVE · READY";
-  state += ShowsFiveHourQuota() ? L"  周额度 + 5小时额度" : L"  " + WindowLabel(*window);
-  if (snapshot_ && !snapshot_->planType.empty()) state += L" · " + Utf8ToWide(snapshot_->planType);
-  if (snapshot_ && snapshot_->credits.balance) {
-    wchar_t credits[48]{};
-    swprintf_s(credits, L" · C %.1f", *snapshot_->credits.balance);
-    state += credits;
+  if (appServer_.RequestInFlight()) state += L" · 刷新中";
+  else if (snapshot_) {
+    state += L" · " + FormatDataAge(snapshot_->lastSuccessAt, std::chrono::system_clock::now());
   }
   return state;
 }
 
 void OverlayWindow::NotifyThresholds(double previous, double current) {
+  if (demoMode_) return;
   if (previous > 100.0) return;
   if (current > previous + 20.0) notifiedThresholds_.clear();
   for (const int threshold : settings_.notificationThresholds) {
@@ -1849,9 +2020,54 @@ void OverlayWindow::OpenSettingsMenu() {
 
 void OverlayWindow::OnTrayCommand(UINT command) {
   switch (command) {
+    case kTrayViewRing:
+    case kTrayViewBar:
+      settings_.progressDisplayMode = command == kTrayViewRing
+          ? ProgressDisplayMode::Ring : ProgressDisplayMode::Bar;
+      ResizeForMode();
+      break;
+    case kTrayQuotaBoth:
+    case kTrayQuotaWeekly:
+      settings_.quotaDisplayMode = command == kTrayQuotaBoth
+          ? QuotaDisplayMode::WeeklyAndFiveHour : QuotaDisplayMode::WeeklyOnly;
+      break;
+    case kTrayDisplayBoth:
+    case kTrayDisplayProgress:
+    case kTrayDisplayEnergy:
+      settings_.displayMode = command == kTrayDisplayBoth ? IndicatorDisplayMode::Both
+          : command == kTrayDisplayProgress ? IndicatorDisplayMode::ProgressOnly
+                                           : IndicatorDisplayMode::EnergyOnly;
+      ResizeForMode();
+      break;
+    case kTrayLayoutCompact:
+    case kTrayLayoutStandard:
+    case kTrayLayoutExpanded:
+      settings_.sizeMode = command == kTrayLayoutCompact ? HudSizeMode::Compact
+          : command == kTrayLayoutStandard ? HudSizeMode::Standard : HudSizeMode::Expanded;
+      ResizeForMode();
+      break;
+    case kTrayBlinkGentle:
+    case kTrayBlinkStandard:
+    case kTrayBlinkFast:
+      settings_.energy.blinkStyle = command == kTrayBlinkGentle ? BlinkStyle::Gentle
+          : command == kTrayBlinkStandard ? BlinkStyle::Standard : BlinkStyle::Aggressive;
+      break;
+    case kTrayPreviewNormal:
+    case kTrayPreviewWarning:
+    case kTrayPreviewStone:
+      if (demoMode_ && snapshot_) {
+        RateLimitSnapshot demo = *snapshot_;
+        for (auto& window : demo.windows) {
+          const bool weekly = ClassifyQuotaWindow(window) == QuotaWindowKind::Weekly;
+          window.remainingPercent = command == kTrayPreviewNormal ? (weekly ? 68.0 : 86.0)
+              : command == kTrayPreviewWarning ? (weekly ? 34.0 : 22.0) : 0.0;
+          window.usedPercent = 100.0 - window.remainingPercent;
+        }
+        ApplySnapshot(std::move(demo));
+      }
+      break;
     case kTrayShowHide:
-      hidden_ = !hidden_;
-      ShowWindow(hwnd_, hidden_ ? SW_HIDE : SW_SHOWNOACTIVATE);
+      SetHidden(!hidden_);
       break;
     case kTrayRefresh: RequestRefresh(true); break;
     case kTrayUsage: OpenUsagePage(); break;
@@ -1876,7 +2092,10 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       settings_.followChatGpt = !settings_.followChatGpt;
       if (settings_.followChatGpt) FollowChatGptWindow();
       break;
-    case kTrayTheme: settings_.themeEnabled = !settings_.themeEnabled; break;
+    case kTrayTheme:
+      settings_.themeEnabled = !settings_.themeEnabled;
+      ResizeForMode();
+      break;
     case kTrayGlow: settings_.energy.glow = !settings_.energy.glow; break;
     case kTrayStone: settings_.energy.stoneAtZero = !settings_.energy.stoneAtZero; break;
     case kTrayBlinkStyle:
@@ -1906,8 +2125,9 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0.4\n\n"
-          L"深色外圈/上条显示周额度，亮色内圈/下条显示 5 小时额度；可切换为仅周额度。\n"
+          L"ChatGPT Codex Usage Monitor 1.0.5\n\n"
+          L"按主额度自动切换单圈/双圈或单条/双条，也可固定只显示周额度。\n"
+          L"周额度使用深色，5 小时额度使用浅色；Spark 独立额度不会混入。\n"
           L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"
           L"胸甲背景使用用户提供并确认有权使用的原图；指示灯与动效由 Direct2D 绘制。",
           L"关于", MB_OK | MB_ICONINFORMATION);
@@ -1917,11 +2137,17 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       return;
     default: return;
   }
-  if (const RateWindow* window = LimitingQuotaWindow()) {
-    energyState_ = ComputeEnergyState(window->remainingPercent, settings_.energy);
-    ConfigureBlinkTimer();
+  if (snapshot_ && (displayStatus_ == DataStatus::Live ||
+                    displayStatus_ == DataStatus::DataUnavailable)) {
+    const RateWindow* window = LimitingQuotaWindow();
+    displayStatus_ = window ? DataStatus::Live : DataStatus::DataUnavailable;
+    energyState_ = ComputeEnergyState(window
+        ? std::optional<double>(window->remainingPercent) : std::nullopt, settings_.energy);
   }
-  SaveSettings(settings_);
+  ConfigureBlinkTimer();
+  if (!demoMode_) SaveSettings(settings_);
+  UpdateTrayTooltip();
+  UpdateTooltips();
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 

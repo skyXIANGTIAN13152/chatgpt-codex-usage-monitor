@@ -18,6 +18,8 @@ namespace monitor {
 constexpr wchar_t kProductName[] = L"ChatGPTCodexUsageMonitor";
 constexpr wchar_t kWindowClass[] = L"ChatGPTCodexUsageMonitor.Hud";
 constexpr wchar_t kMutexName[] = L"Local\\ChatGPTCodexUsageMonitor.Monitor";
+constexpr wchar_t kPreviewWindowClass[] = L"ChatGPTCodexUsageMonitor.Preview";
+constexpr wchar_t kPreviewMutexName[] = L"Local\\ChatGPTCodexUsageMonitor.Preview";
 
 constexpr UINT WM_MONITOR_SNAPSHOT = WM_APP + 1;
 constexpr UINT WM_MONITOR_SERVER_ERROR = WM_APP + 2;

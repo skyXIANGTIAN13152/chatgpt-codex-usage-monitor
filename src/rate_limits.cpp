@@ -11,13 +11,10 @@ namespace {
 constexpr int kFiveHourMinutes = 5 * 60;
 constexpr int kWeeklyMinutes = 7 * 24 * 60;
 
-int BucketPriority(const RateWindow& window) {
-  std::string id = window.bucketId;
+std::string NormalizeBucketId(std::string id) {
   std::transform(id.begin(), id.end(), id.begin(),
                  [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
-  if (id.empty() || id == "codex") return 0;
-  if (id.find("codex") != std::string::npos) return 1;
-  return 2;
+  return id.empty() ? "codex" : id;
 }
 
 int DurationDistance(const RateWindow& window, int targetMinutes) {
@@ -32,11 +29,11 @@ std::string StringField(const JsonValue& value, std::string_view key) {
 std::optional<double> NumberField(const JsonValue& value, std::string_view key) {
   const JsonValue* field = value.Find(key);
   if (!field) return std::nullopt;
-  if (auto number = field->AsNumber()) return number;
+  if (auto number = field->AsNumber(); number && std::isfinite(*number)) return number;
   if (const auto* text = field->AsString()) {
     char* end = nullptr;
     const double number = std::strtod(text->c_str(), &end);
-    if (end && *end == '\0' && std::isfinite(number)) return number;
+    if (end && end != text->c_str() && *end == '\0' && std::isfinite(number)) return number;
   }
   return std::nullopt;
 }
@@ -122,7 +119,11 @@ void ParseCreditsObject(const JsonValue* credits, CreditsInfo* output) {
 void ParseWindow(const JsonValue* window, std::string_view bucketId,
                  std::string_view bucketName, std::string_view windowName,
                  RateLimitSnapshot* snapshot) {
-  if (!window || !window->IsObject()) return;
+  if (!window) return;
+  if (snapshot->sparseUpdate) {
+    snapshot->updatedWindows.emplace_back(bucketId, windowName);
+  }
+  if (!window->IsObject()) return;
   const auto used = NumberField(*window, "usedPercent");
   if (!used) return;
   RateWindow parsed;
@@ -143,6 +144,7 @@ void ParseBucket(const JsonValue& bucket, std::string_view fallbackId,
   if (!bucket.IsObject()) return;
   std::string id = StringField(bucket, "limitId");
   if (id.empty()) id = std::string(fallbackId);
+  id = NormalizeBucketId(std::move(id));
   std::string name = StringField(bucket, "limitName");
   if (name.empty()) name = id;
   ParseWindow(bucket.Find("primary"), id, name, "primary", snapshot);
@@ -150,6 +152,8 @@ void ParseBucket(const JsonValue& bucket, std::string_view fallbackId,
   if (!bucket.Find("primary") && bucket.Find("usedPercent")) {
     ParseWindow(&bucket, id, name, "primary", snapshot);
   }
+  // Model-specific quotas must not supply account-wide plan/credit metadata.
+  if (id != "codex") return;
   if (snapshot->planType.empty()) snapshot->planType = StringField(bucket, "planType");
   if (snapshot->rateLimitReachedType.empty()) {
     snapshot->rateLimitReachedType = StringField(bucket, "rateLimitReachedType");
@@ -192,35 +196,15 @@ QuotaWindowKind ClassifyQuotaWindow(const RateWindow& window) {
 
 CodexQuotaWindows SelectCodexQuotaWindows(const RateLimitSnapshot& snapshot) {
   CodexQuotaWindows selected;
-  long long bestPairScore = LLONG_MAX;
-
-  // Prefer two matching windows from the same quota bucket, then prefer the
-  // standard Codex bucket, and finally the closest durations. This prevents a
-  // model-specific limit from being paired with the account-wide weekly limit.
-  for (const RateWindow& weekly : snapshot.windows) {
-    if (ClassifyQuotaWindow(weekly) != QuotaWindowKind::Weekly) continue;
-    for (const RateWindow& fiveHour : snapshot.windows) {
-      if (ClassifyQuotaWindow(fiveHour) != QuotaWindowKind::FiveHour) continue;
-      const bool sameBucket = weekly.bucketId == fiveHour.bucketId;
-      const long long score = (sameBucket ? 0LL : 1000000LL) +
-          static_cast<long long>(BucketPriority(weekly) + BucketPriority(fiveHour)) * 10000LL +
-          static_cast<long long>(DurationDistance(weekly, kWeeklyMinutes)) * 10LL +
-          DurationDistance(fiveHour, kFiveHourMinutes);
-      if (score < bestPairScore) {
-        bestPairScore = score;
-        selected.weekly = &weekly;
-        selected.fiveHour = &fiveHour;
-      }
-    }
-  }
-  if (selected.weekly && selected.fiveHour) return selected;
-
-  auto chooseSingle = [&](QuotaWindowKind kind, int targetMinutes) {
+  // Select the account-wide source FIRST. Never borrow a missing period from
+  // Spark or switch to its complete pair when Codex only has a weekly window.
+  auto chooseWindow = [&](QuotaWindowKind kind, int targetMinutes) {
     const RateWindow* best = nullptr;
     int bestScore = INT_MAX;
     for (const RateWindow& window : snapshot.windows) {
+      if (NormalizeBucketId(window.bucketId) != "codex") continue;
       if (ClassifyQuotaWindow(window) != kind) continue;
-      const int score = BucketPriority(window) * 100000 +
+      const int score = (window.bucketId.empty() ? 100000 : 0) +
                         DurationDistance(window, targetMinutes);
       if (score < bestScore) {
         best = &window;
@@ -229,14 +213,27 @@ CodexQuotaWindows SelectCodexQuotaWindows(const RateLimitSnapshot& snapshot) {
     }
     return best;
   };
-  selected.weekly = chooseSingle(QuotaWindowKind::Weekly, kWeeklyMinutes);
-  selected.fiveHour = chooseSingle(QuotaWindowKind::FiveHour, kFiveHourMinutes);
+  selected.weekly = chooseWindow(QuotaWindowKind::Weekly, kWeeklyMinutes);
+  selected.fiveHour = chooseWindow(QuotaWindowKind::FiveHour, kFiveHourMinutes);
+  selected.other = chooseWindow(QuotaWindowKind::Other, 0);
   return selected;
+}
+
+bool HasCodexQuotaUpdate(const RateLimitSnapshot& snapshot) {
+  return std::any_of(snapshot.windows.begin(), snapshot.windows.end(),
+      [](const RateWindow& window) { return NormalizeBucketId(window.bucketId) == "codex"; }) ||
+      std::any_of(snapshot.updatedWindows.begin(), snapshot.updatedWindows.end(),
+      [](const auto& key) { return NormalizeBucketId(key.first) == "codex"; });
 }
 
 RateLimitSnapshot MergeSparseRateLimitSnapshot(const RateLimitSnapshot& base,
                                                const RateLimitSnapshot& update) {
   RateLimitSnapshot merged = base;
+  for (const auto& [bucketId, windowName] : update.updatedWindows) {
+    std::erase_if(merged.windows, [&](const RateWindow& current) {
+      return current.bucketId == bucketId && current.windowName == windowName;
+    });
+  }
   for (const RateWindow& incoming : update.windows) {
     const auto existing = std::find_if(
         merged.windows.begin(), merged.windows.end(), [&](const RateWindow& current) {
@@ -253,6 +250,7 @@ RateLimitSnapshot MergeSparseRateLimitSnapshot(const RateLimitSnapshot& base,
   }
   merged.status = update.status;
   merged.sparseUpdate = false;
+  merged.updatedWindows.clear();
   merged.receivedAt = update.receivedAt;
   merged.lastSuccessAt = update.lastSuccessAt;
   merged.errorMessage = update.errorMessage;
@@ -317,13 +315,15 @@ std::optional<RateLimitSnapshot> ParseRateLimitMessage(std::string_view json,
   if (multi && multi->IsObject()) {
     for (const auto& [id, bucket] : *multi->AsObject()) ParseBucket(bucket, id, &snapshot);
   }
-  if (snapshot.windows.empty()) {
+  // A present multi-bucket view is authoritative, even when empty. Falling
+  // back to the legacy view here could resurrect a removed five-hour limit.
+  if (!multi || !multi->IsObject()) {
     const JsonValue* single = payload->Find("rateLimits");
     if (single && single->IsArray()) {
       for (const JsonValue& bucket : *single->AsArray()) ParseBucket(bucket, {}, &snapshot);
     } else if (single) {
       ParseBucket(*single, "codex", &snapshot);
-    } else if (payload->Find("primary") || payload->Find("usedPercent")) {
+    } else if (payload->Find("primary") || payload->Find("secondary") || payload->Find("usedPercent")) {
       ParseBucket(*payload, "codex", &snapshot);
     }
   }
@@ -349,9 +349,16 @@ std::optional<RateLimitSnapshot> ParseRateLimitMessage(std::string_view json,
     }
   }
 
-  if (snapshot.windows.empty()) {
-    if (error) *error = "official interface returned no quota windows";
+  const bool hasQuotaPayload = (multi && multi->IsObject()) ||
+      payload->Find("rateLimits") || payload->Find("primary") ||
+      payload->Find("secondary") || payload->Find("usedPercent");
+  if (!hasQuotaPayload) {
+    if (error) *error = "official interface returned no quota payload";
     return std::nullopt;
+  }
+  const auto selected = SelectCodexQuotaWindows(snapshot);
+  if (!snapshot.sparseUpdate && !selected.weekly && !selected.fiveHour && !selected.other) {
+    snapshot.status = DataStatus::DataUnavailable;
   }
   return snapshot;
 }
@@ -411,6 +418,20 @@ std::wstring DataStatusText(DataStatus status) {
     case DataStatus::DataUnavailable: return L"DATA UNAVAILABLE";
   }
   return L"DATA UNAVAILABLE";
+}
+
+std::wstring FormatDataAge(std::chrono::system_clock::time_point lastSuccess,
+                          std::chrono::system_clock::time_point now) {
+  if (lastSuccess.time_since_epoch().count() == 0) return L"尚未同步";
+  const auto minutes = std::max<int64_t>(0,
+      std::chrono::duration_cast<std::chrono::minutes>(now - lastSuccess).count());
+  if (minutes == 0) return L"刚更新";
+  wchar_t buffer[40]{};
+  if (minutes < 60) swprintf_s(buffer, L"%lld分前", static_cast<long long>(minutes));
+  else if (minutes < 24 * 60) {
+    swprintf_s(buffer, L"%lld时前", static_cast<long long>(minutes / 60));
+  } else swprintf_s(buffer, L"%lld天前", static_cast<long long>(minutes / (24 * 60)));
+  return buffer;
 }
 
 }  // namespace monitor

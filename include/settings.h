@@ -6,6 +6,8 @@ namespace monitor {
 
 enum class IndicatorDisplayMode { ProgressOnly, EnergyOnly, Both };
 enum class ProgressDisplayMode { Bar, Ring };
+// Value 0 remains compatible with saved settings: show both when the main
+// bucket provides both periods, otherwise automatically show the single one.
 enum class QuotaDisplayMode { WeeklyAndFiveHour, WeeklyOnly };
 enum class HudSizeMode { Compact, Standard, Expanded };
 
