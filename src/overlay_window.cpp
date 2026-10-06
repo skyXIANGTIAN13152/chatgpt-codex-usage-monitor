@@ -388,12 +388,12 @@ LRESULT OverlayWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       return 0;
     case WM_MONITOR_SNAPSHOT: {
       std::unique_ptr<RateLimitSnapshot> snapshot(reinterpret_cast<RateLimitSnapshot*>(lparam));
-      if (snapshot) ApplySnapshot(std::move(*snapshot));
+      if (snapshot && wparam == serverGeneration_) ApplySnapshot(std::move(*snapshot));
       return 0;
     }
     case WM_MONITOR_SERVER_ERROR: {
       std::unique_ptr<AppServerError> error(reinterpret_cast<AppServerError*>(lparam));
-      if (error) ApplyServerError(std::move(*error));
+      if (error && wparam == serverGeneration_) ApplyServerError(std::move(*error));
       return 0;
     }
     case WM_MONITOR_NETWORK_CHANGE:
@@ -1613,17 +1613,23 @@ void OverlayWindow::Paint() {
 
 void OverlayWindow::StartCodex() {
   if (demoMode_) return;
+  KillTimer(hwnd_, kRefreshTimer);
+  KillTimer(hwnd_, kRequestTimeoutTimer);
+  restartForAuthentication_ = false;
+  // Stop() joins the previous reader, but its posted messages may still be
+  // queued. Tag callbacks so they cannot overwrite the new connection's state.
+  const WPARAM generation = ++serverGeneration_;
   displayStatus_ = DataStatus::Connecting;
   energyState_ = ComputeEnergyState(std::nullopt, settings_.energy);
   const HWND target = hwnd_;
   appServer_.Start(
-      [target](RateLimitSnapshot snapshot) {
+      [target, generation](RateLimitSnapshot snapshot) {
         auto* message = new RateLimitSnapshot(std::move(snapshot));
-        if (!PostMessageW(target, WM_MONITOR_SNAPSHOT, 0, reinterpret_cast<LPARAM>(message))) delete message;
+        if (!PostMessageW(target, WM_MONITOR_SNAPSHOT, generation, reinterpret_cast<LPARAM>(message))) delete message;
       },
-      [target](AppServerError error) {
+      [target, generation](AppServerError error) {
         auto* message = new AppServerError(std::move(error));
-        if (!PostMessageW(target, WM_MONITOR_SERVER_ERROR, 0, reinterpret_cast<LPARAM>(message))) delete message;
+        if (!PostMessageW(target, WM_MONITOR_SERVER_ERROR, generation, reinterpret_cast<LPARAM>(message))) delete message;
       });
   // Start() also sends the first quota request. It needs the same watchdog as
   // later polls, otherwise a silent initial request can remain stuck forever.
@@ -1634,6 +1640,15 @@ void OverlayWindow::StartCodex() {
 
 void OverlayWindow::RequestRefresh(bool userInitiated) {
   if (demoMode_) return;
+  if (restartForAuthentication_) {
+    // A running CLI can retain credentials from before the desktop app's
+    // token rotation or a later login. A fresh server reloads its own official
+    // credential store, including keyring storage; the HUD never reads tokens.
+    authenticationRecoveryAttempted_ = true;
+    LogDebug(L"Restarting Codex App Server to reload login state.");
+    StartCodex();
+    return;
+  }
   if (!appServer_.IsRunning()) {
     StartCodex();
     return;
@@ -1651,6 +1666,11 @@ void OverlayWindow::ApplySnapshot(RateLimitSnapshot snapshot) {
   // appear freshly synchronized. The scheduled complete read still runs.
   if (snapshot.sparseUpdate && !HasCodexQuotaUpdate(snapshot)) return;
   const bool fullRead = !snapshot.sparseUpdate;
+  if (fullRead) {
+    if (authenticationRecoveryAttempted_) LogDebug(L"Codex login recovery succeeded.");
+    restartForAuthentication_ = false;
+    authenticationRecoveryAttempted_ = false;
+  }
   const bool firstSnapshot = !snapshot_;
   if (snapshot.sparseUpdate && snapshot_) {
     snapshot = MergeSparseRateLimitSnapshot(*snapshot_, snapshot);
@@ -1681,6 +1701,10 @@ void OverlayWindow::ApplySnapshot(RateLimitSnapshot snapshot) {
 
 void OverlayWindow::ApplyServerError(AppServerError error) {
   if (!appServer_.RequestInFlight()) KillTimer(hwnd_, kRequestTimeoutTimer);
+  const bool authenticationFailure = error.kind == AppServerErrorKind::NotLoggedIn ||
+                                     error.kind == AppServerErrorKind::Unauthorized;
+  const bool duplicateAuthenticationFailure = authenticationFailure && restartForAuthentication_;
+  if (authenticationFailure) restartForAuthentication_ = true;
   switch (error.kind) {
     case AppServerErrorKind::CliMissing:
     case AppServerErrorKind::LaunchFailed: displayStatus_ = DataStatus::CliMissing; break;
@@ -1697,7 +1721,9 @@ void OverlayWindow::ApplyServerError(AppServerError error) {
   }
   energyState_ = ComputeEnergyState(std::nullopt, settings_.energy);
   ConfigureBlinkTimer();
-  ScheduleNextRefresh(false);
+  // account/read and the quota read can both report the same failed login.
+  // Keep the existing retry instead of advancing its backoff twice.
+  if (!duplicateAuthenticationFailure) ScheduleNextRefresh(false);
   UpdateTrayTooltip();
   UpdateTooltips();
   InvalidateRect(hwnd_, nullptr, FALSE);
@@ -1714,10 +1740,15 @@ void OverlayWindow::ConfigureBlinkTimer() {
 void OverlayWindow::ScheduleNextRefresh(bool success) {
   if (demoMode_) return;
   KillTimer(hwnd_, kRefreshTimer);
+  const bool immediateAuthenticationRecovery = !success && restartForAuthentication_ &&
+                                               !authenticationRecoveryAttempted_;
   if (success) consecutiveFailures_ = 0;
-  else consecutiveFailures_ = std::min(consecutiveFailures_ + 1, 5);
+  else if (!immediateAuthenticationRecovery) consecutiveFailures_ = std::min(consecutiveFailures_ + 1, 5);
   int seconds = settings_.refreshSeconds;
   if (!success) seconds = std::min(600, 60 * (1 << std::max(0, consecutiveFailures_ - 1)));
+  // One quick recovery per failure episode. A genuine sign-out keeps the
+  // existing bounded backoff, and each retry reloads the official login state.
+  if (immediateAuthenticationRecovery) seconds = 1;
   SetTimer(hwnd_, kRefreshTimer, static_cast<UINT>(seconds * 1000), nullptr);
 }
 
@@ -2125,7 +2156,7 @@ void OverlayWindow::OnTrayCommand(UINT command) {
       break;
     case kTrayAbout:
       MessageBoxW(hwnd_,
-          L"ChatGPT Codex Usage Monitor 1.0.5\n\n"
+          L"ChatGPT Codex Usage Monitor 1.0.6\n\n"
           L"按主额度自动切换单圈/双圈或单条/双条，也可固定只显示周额度。\n"
           L"周额度使用深色，5 小时额度使用浅色；Spark 独立额度不会混入。\n"
           L"额度来自官方 Codex App Server；仅显示接口返回的百分比，不伪造 token。\n"

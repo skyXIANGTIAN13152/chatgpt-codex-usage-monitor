@@ -2,9 +2,9 @@
 
 [中文说明](README.md) · English
 
-Download **v1.0.5**: [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5-en) · [Chinese edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5). Choose the `portable.zip` asset and extract the complete archive. To upgrade, exit the monitor from its tray menu before replacing the portable application files. Your saved settings stay in their separate per-user folder.
+Download **v1.0.6**: [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6-en) · [Chinese edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6). Choose the `portable.zip` asset and extract the complete archive. To upgrade, exit the monitor from its tray menu before replacing the portable application files. Your saved settings stay in their separate per-user folder.
 
-This release blends the chest artwork into a quieter light-energy panel, moves the rings clear of the body, and improves percentages, reset labels, footer controls, grouped menus, and hover details. Both editions share the same quota logic and geometry. See the [v1.0.5 release notes](docs/release-notes-v1.0.5.md).
+v1.0.6 fixes a monitor that keeps showing "not logged in" after the desktop app refreshes its login. Authentication failures now reconnect App Server so the official CLI reloads its credentials; Refresh can reconnect immediately. Queued messages from older connections cannot overwrite recovered data. See the [v1.0.6 release notes](docs/release-notes-v1.0.6.md).
 
 An unofficial, lightweight Windows HUD for showing Codex usage windows alongside the ChatGPT desktop app. It is written in C++20 with native Win32 and Direct2D. The monitor follows the ChatGPT desktop window, reads rate-limit data from the locally installed official Codex CLI App Server, and exits after all eligible ChatGPT windows have been closed for five seconds. The default is an 80% compact layout (about 240×72); the tray menu provides 5% steps from 60% to 140% and scales the chest, energy lens, bars/rings, typography, and ion particles together. In dual-quota mode, a deeper outer ring represents weekly remaining usage and a brighter inner ring represents the five-hour window; bar mode uses the same mapping as upper and lower bars. A weekly-only option is also available. The selected size, visual form, and quota mode are saved and reused as the next launch defaults.
 
@@ -37,7 +37,7 @@ The monitor icon is a transparent multi-size device cutout. Small tray sizes emp
 
 ## Download
 
-Download the Windows portable package from the [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5-en). Extract the complete ZIP and start `ChatGPTCodexUsageMonitor.exe`. The full package includes the official Codex CLI executable and its license/notice files. The repository's Latest release remains the Chinese edition; the English edition has its own `-en` tag.
+Download the Windows portable package from the [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6-en). Extract the complete ZIP and start `ChatGPTCodexUsageMonitor.exe`. The full package includes the official Codex CLI executable and its license/notice files. The repository's Latest release remains the Chinese edition; the English edition has its own `-en` tag.
 
 The first run requires:
 
@@ -46,6 +46,8 @@ The first run requires:
 3. Codex CLI signed in through its official ChatGPT login flow.
 
 The monitor does not copy OAuth tokens, read cookies, install a service, require administrator access, or add a startup task. It communicates with the local Codex App Server and only displays the returned usage fields.
+
+v1.0.6 restarts App Server about one second after the first authentication failure so the official CLI reloads its login state. Continued sign-out uses the existing 60-second-to-10-minute backoff, with a fresh connection on each retry; clicking Refresh reconnects immediately. Successful reads restore normal polling. Queued errors or snapshots from older connections cannot overwrite the new connection's data. The HUD does not read or modify credentials.
 
 Use **Display and appearance** in the tray menu to choose **Auto quota (single / dual)** or **Weekly only**, and **Light-energy bars** or **Light-energy rings**. These choices persist across restarts. At the default 80% size and 100% Windows display scaling, compact rings are about 224×72 and compact bars about 240×72. Hover over the quota for full reset timestamps and account-plan details. The footer shows the data age, not real-time token activity.
 
@@ -70,7 +72,7 @@ From a Developer PowerShell or a prompt with MSVC available:
 cmd /c scripts\build-release.cmd
 ```
 
-The build regenerates the theme variants, compiles the Win32 application, runs all five automated test suites, and packages the verified official Codex CLI. The CLI binary is intentionally ignored by Git and is distributed through Releases instead of the source repository. The `main` branch builds the Chinese UI; use the `v1.0.5-en` tag or its English source ZIP to build the English UI.
+The build regenerates the theme variants, compiles the Win32 application, runs all six automated test suites, and packages the verified official Codex CLI. The CLI binary is intentionally ignored by Git and is distributed through Releases instead of the source repository. The `main` branch builds the Chinese UI; use the `v1.0.6-en` tag or its English source ZIP to build the English UI.
 
 ## Project layout
 

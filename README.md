@@ -2,9 +2,9 @@
 
 中文说明 · [English README](README.en.md)
 
-下载 **v1.0.5**：[中文版](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5) · [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.5-en)。选择 `portable.zip`，完整解压后运行；无需自行编译。升级时先从托盘退出显示器，再替换解压目录中的程序文件；用户配置保存在独立目录，会继续保留。
+下载 **v1.0.6**：[中文版](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6) · [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6-en)。选择 `portable.zip`，完整解压后运行；无需自行编译。升级时先从托盘退出显示器，再替换解压目录中的程序文件；用户配置保存在独立目录，会继续保留。
 
-本次更新统一了胸甲与光能背板，圆环右移并与身体留出间距，百分比、倒计时及底栏按钮排布更清晰。单圈、双圈使用相同的间距规则；整体缩放仍包含所有图形和文字。主额度按实际周期自动适配，不会混入 Spark 独立额度。完整说明见 [v1.0.5 更新记录](docs/release-notes-v1.0.5.md)。
+v1.0.6 修复了 Codex 主程序已登录、额度显示器却持续显示“未登录”的问题。认证失败后显示器会重建额度连接，让官方 CLI 重新加载登录状态；点击刷新也可立即重连。旧连接排队的消息不会覆盖恢复后的数据。完整说明见 [v1.0.6 更新记录](docs/release-notes-v1.0.6.md)。
 
 这是一个 C++20 / 原生 Win32 的轻量 Windows HUD。它通过新的桌面快捷方式启动 Microsoft Store / MSIX 版 ChatGPT，同时从本机已登录的官方 Codex CLI App Server 读取 ChatGPT 账户中的 Codex 额度窗口。默认使用 80% 整体缩放的紧凑模式，约为 240×72；右键托盘菜单可按 5% 在 60%–140% 之间自由调整，且会同步缩放胸甲、能量灯、进度条/光能圆环、字体和粒子效果。额度形式可在“光能条”和“光能圆环”之间切换：双圆环以深色外圈表示周剩余额度、亮色内圈表示 5 小时剩余额度；双进度条则以深色上条和亮色下条表达同一对应关系。也可以切换为“仅周额度”。用户选择的尺寸、额度形式和窗口模式会写入配置并作为下次启动的默认值。ChatGPT 的有效顶层窗口全部关闭并持续 5 秒后，监视器自动退出；它不会提前常驻等待 ChatGPT，也不是开机常驻程序，不会安装服务。
 
@@ -124,6 +124,8 @@ ctest --test-dir build -C Release --output-on-failure
 
 程序以隐藏子进程启动当前官方 CLI 的 `codex app-server`，通过 stdin/stdout JSONL 完成 `initialize`/`initialized` 握手，调用 `account/rateLimits/read`，并监听 `account/rateLimits/updated`。默认 60 秒主动刷新；通知、用户点击、系统睡眠恢复和网络接口变化会触发即时刷新。失败后指数退避，最长 10 分钟，同一时间最多一个额度请求。
 
+v1.0.6 在首次认证失败后约 1 秒自动重建 App Server，使官方 CLI 重新加载登录状态。持续未登录时按 60 秒至 10 分钟的退避间隔重新连接；登录后也可点击刷新立即重连。成功读取后恢复正常刷新。旧连接中排队的错误或额度消息不会覆盖新连接的数据。显示器仍不读取、复制或修改登录凭据。
+
 解析字段包括 `rateLimits`、`rateLimitsByLimitId`、`limitId`、`limitName`、`primary`、`secondary`、`usedPercent`、`windowDurationMins`、`resetsAt`、`credits`、`hasCredits`、`unlimited`、`balance`、`planType`、`rateLimitReachedType` 和 `rateLimitResetCredits.availableCount`。程序不依赖 `primary`/`secondary` 的顺序，而以 300 分钟识别 5 小时窗口、10,080 分钟识别周窗口，并优先配对同一个 Codex bucket。稀疏的 `account/rateLimits/updated` 通知会合并进完整快照，因此只更新一个窗口时不会让另一个图形消失。字段缺失、新增、改序或部分 bucket 不可用不会导致崩溃。
 
 如果当前官方接口不返回准确额度，程序显示“官方接口当前未提供此数据”/`DATA UNAVAILABLE`，并保留最后一次成功数据的时间；不会退回网页抓取、Cookie、私有 ChatGPT HTTP 接口、估算或伪造。
@@ -141,7 +143,7 @@ ctest --test-dir build -C Release --output-on-failure
 ## 常见错误排查
 
 - **CODEX CLI 未找到**：确认交付目录中的 `codex.exe` 与 `ChatGPTCodexUsageMonitor.exe` 位于同一目录且未被移动/删除；也可用 `CODEX_EXECUTABLE` 指定其他官方 CLI。
-- **CODEX 尚未登录**：先直接运行 `codex` 并完成 ChatGPT 登录。
+- **CODEX 尚未登录**：先直接运行 `codex` 并完成 ChatGPT 登录。若主程序已登录，显示器会自动重连；点击刷新可立即重新加载登录状态。
 - **DATA UNAVAILABLE**：官方版本可能暂未给此账户返回额度；查看日志，等待下一次通知/刷新。程序不会改用 Cookie 抓取。
 - **网络不可用 / 401 / 403 / 429 / 5xx**：检查登录和网络；程序会自动退避重试，网络恢复时立即刷新。
 - **找不到 ChatGPT**：确认安装的是 Microsoft Store/MSIX 版且可正常启动；程序不硬编码某台机器的安装目录。

@@ -79,6 +79,9 @@ class OverlayWindow {
   bool demoMode_ = false;
   bool workingSetTrimmed_ = false;
   int consecutiveFailures_ = 0;
+  bool restartForAuthentication_ = false;
+  bool authenticationRecoveryAttempted_ = false;
+  UINT_PTR serverGeneration_ = 0;
   double previousRemaining_ = 101.0;
   std::vector<int> notifiedThresholds_;
   HANDLE networkNotification_ = nullptr;
