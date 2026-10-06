@@ -158,7 +158,7 @@ bool CodexAppServer::Start(SnapshotCallback snapshotCallback,
   const std::string initialize =
       "{\"method\":\"initialize\",\"id\":1,\"params\":{\"clientInfo\":{"
       "\"name\":\"chatgpt_codex_usage_monitor\","
-      "\"title\":\"ChatGPT Codex Usage Monitor\",\"version\":\"1.0.5\"}}}";
+      "\"title\":\"ChatGPT Codex Usage Monitor\",\"version\":\"1.0.6\"}}}";
   if (!WriteLine(initialize) || !WriteLine("{\"method\":\"initialized\",\"params\":{}}")) {
     ReportError(AppServerErrorKind::Protocol, L"Unable to send the App Server initialization message.");
     Stop();

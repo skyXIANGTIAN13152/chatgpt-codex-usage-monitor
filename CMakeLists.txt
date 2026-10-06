@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(ChatGPTCodexUsageMonitor VERSION 1.0.5 LANGUAGES CXX RC)
+project(ChatGPTCodexUsageMonitor VERSION 1.0.6 LANGUAGES CXX RC)
 
 if(NOT WIN32)
   message(FATAL_ERROR "This project targets Windows only.")
@@ -89,6 +89,21 @@ add_test(NAME overlay_regression
   COMMAND overlay_regression_tests $<TARGET_FILE:fake_codex_app_server>
 )
 set_tests_properties(overlay_regression PROPERTIES TIMEOUT 30)
+add_executable(auth_recovery_tests
+  tests/auth_recovery.cpp
+  src/overlay_window.cpp
+  src/energy_indicator_renderer.cpp
+  src/tray_icon.cpp
+  resources/app.rc
+)
+target_link_libraries(auth_recovery_tests PRIVATE
+  monitor_core d2d1 dwrite gdi32 comctl32 windowscodecs
+)
+target_compile_options(auth_recovery_tests PRIVATE /W4 /permissive- /EHsc /utf-8 /Zc:__cplusplus)
+add_test(NAME authentication_recovery
+  COMMAND auth_recovery_tests $<TARGET_FILE:fake_codex_app_server>
+)
+set_tests_properties(authentication_recovery PROPERTIES TIMEOUT 30)
 add_test(NAME monitor_unit_and_lifecycle_tests COMMAND monitor_tests)
 add_test(NAME fake_app_server_protocol
   COMMAND fake_codex_app_server --self-test

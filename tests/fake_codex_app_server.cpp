@@ -48,6 +48,11 @@ int main(int argc, char** argv) {
       Send("{\"id\":" + std::to_string(id) +
            ",\"result\":{\"userAgent\":\"fake/1.0\",\"platformFamily\":\"windows\",\"platformOs\":\"windows\"}}");
     } else if (method == "account/read") {
+      if (scenario == "signed-out") {
+        Send("{\"id\":" + std::to_string(id) +
+             ",\"result\":{\"account\":null,\"requiresOpenaiAuth\":true}}");
+        continue;
+      }
       Send("{\"id\":" + std::to_string(id) +
            ",\"result\":{\"account\":{\"type\":\"chatgpt\"},\"requiresOpenaiAuth\":true}}");
     } else if (method == "account/rateLimits/read") {
@@ -59,7 +64,7 @@ int main(int argc, char** argv) {
         continue;
       }
       if (scenario == "close") return 0;
-      if (scenario == "401") {
+      if (scenario == "401" || scenario == "signed-out") {
         Send("{\"id\":" + std::to_string(id) +
              ",\"error\":{\"code\":401,\"message\":\"unauthorized\"}}");
         continue;
