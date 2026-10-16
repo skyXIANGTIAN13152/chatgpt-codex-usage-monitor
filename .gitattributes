@@ -1,0 +1,3 @@
+# Preserve the exact upstream bytes recorded in reuse-manifest.json and notices.
+app/native/core-helper/upstream/** -text -whitespace
+app/licenses/** -text -whitespace

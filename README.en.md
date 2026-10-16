@@ -1,92 +1,92 @@
-# ChatGPT Codex Usage Monitor
+# Tiga Energy Monitor 2.0.0
 
-[中文说明](README.md) · English
+[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.0.en.md)
 
-Download **v1.0.6**: [English edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6-en) · [Chinese edition](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6). Choose the `portable.zip` asset and extract the complete archive. To upgrade, exit the monitor from its tray menu before replacing the portable application files. Your saved settings stay in their separate per-user folder.
+An independent, transparent Windows desktop widget for Codex allowance from a ChatGPT account and Claude Code subscription usage. The character and account information sit directly on the desktop, with click-through empty space. Codex, ChatGPT, Steam and Wallpaper Engine do not need to stay open.
 
-v1.0.6 fixes a monitor that keeps showing "not logged in" after the desktop app refreshes its login. Authentication failures now reconnect App Server so the official CLI reloads its credentials; Refresh can reconnect immediately. Queued messages from older connections cannot overwrite recovered data. See the [v1.0.6 release notes](docs/release-notes-v1.0.6.md).
+**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0-en/TigaEnergyMonitor-v2.0.0-en-windows-x64-portable.zip)** · **[Watch the complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4)** · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.0-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.0)
 
-An unofficial, lightweight Windows HUD for showing Codex usage windows alongside the ChatGPT desktop app. It is written in C++20 with native Win32 and Direct2D. The monitor follows the ChatGPT desktop window, reads rate-limit data from the locally installed official Codex CLI App Server, and exits after all eligible ChatGPT windows have been closed for five seconds. The default is an 80% compact layout (about 240×72); the tray menu provides 5% steps from 60% to 140% and scales the chest, energy lens, bars/rings, typography, and ion particles together. In dual-quota mode, a deeper outer ring represents weekly remaining usage and a brighter inner ring represents the five-hour window; bar mode uses the same mapping as upper and lower bars. A weekly-only option is also available. The selected size, visual form, and quota mode are saved and reused as the next launch defaults.
+The English edition has its own `v2.0.0-en` release with an English application interface. The Chinese edition uses `v2.0.0`. The approximately 1-minute-45-second demo uses the Chinese interface, records actual application windows, and labels all readings as sample data.
 
-## What it shows
+## Getting started
 
-- Remaining percentages for the weekly and five-hour usage windows;
-- Separate reset countdowns and local reset times for both windows;
-- Automatic single/dual rings or bars, plus an explicit weekly-only mode;
-- Only the main `codex` quota; Spark and other model-specific limits are never substituted or mixed into it;
-- Credits balance, plan type, last successful update, and stale/offline state;
-- LIVE, WARNING, CRITICAL, STONE, STALE, OFFLINE, not-logged-in, and CLI-not-installed states.
+1. Extract the entire `TigaEnergyMonitor-v2.0.0-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
+2. Select the ChatGPT or Claude Code login link. The bundled official component starts its authorization flow, using a separate account directory.
+3. Open Settings to choose visible accounts and either bars or rings. You can show one account, both or neither. The account that controls the character is selected separately.
+4. Drag the character to move the widget. The always-visible toolbar provides refresh, pause, pin, settings and hide-to-tray. Use the tray menu to exit completely.
 
-The monitor displays the percentages returned by the official interface. It does not pretend that a rate-limit percentage is a token count, context-window statistic, or API billing value.
+**Validation boundary:** standalone launch, signed-out official components, settings persistence, actual windows, animation and calculations with test data have been tested. This release has **not** completed end-to-end verification of quota readings after a real user authorization. Claude Code usage reading is experimental: first-run setup, account permissions or upstream UI changes may leave it waiting for synchronization. Missing readings are never replaced with demo values.
 
-The default quota mode now adapts to the periods actually returned by the main bucket, not the subscription's name. A weekly-only response automatically removes the inner ring/lower bar and its text; a dual-period response restores both. Your saved position, size, scale, theme, and display preference remain unchanged. An absent period is not shown as 100% or unlimited. Unavailable main data shows `--` and an unavailable status, without a false exhaustion notification or stone effect. Network failures retain a muted last-known value with an explicit status; Spark-only notifications do not make old main-quota data appear fresh. Single-quota reset text is centered and the bar layout puts the countdown and date on separate lines to avoid overlap.
+## Features
 
-## Theme and visual states
+- Independent Codex and Claude Code login, refresh and logout. Account visibility is separate from the character's target and aggregate membership.
+- Choose bars or rings, with bars as the default. Each account has one concentric ring group: weekly outside, five-hour inside. A single available period uses one ring. The center prefers the five-hour percentage; both period values and reset/refresh details remain available.
+- Independent period colors: Codex uses blue/cyan, changing below 50% toward rose/red; Claude uses white/gold, changing below 50% toward dark yellow/orange-red. A real 0% uses a stone texture. Previews and aggregate selection do not recolor unrelated periods.
+- Three transparent character states: full energy, warning and stone. Body texture and silhouette remain fixed; local moving light is derived from the original wallpapers. Transitions use a 1.8-second crossfade by default. Previewing a state never changes account data.
+- A compact 420×246 logical-pixel widget with 80%, 100%, 125% and 150% scales, saved position, and a separate settings window. Hiding an account moves the remaining information and toolbar upward.
+- Pause stops animation while quota refresh continues. Reduced-motion mode uses still images and disables transitions.
+- Optional launch watching for Codex and/or Claude Code, disabled by default. When enabled, a local watcher starts at Windows sign-in and opens the monitor when the selected application launches. Closing that application does not close the monitor. Turning both switches off removes the watcher's startup entry.
 
-The optional tribute theme uses the owner-provided chest artwork and an original Direct2D background inspired by light, dawn, and energy. The chest geometry stays aligned across states. Weekly usage uses the deeper blue-violet outer/upper layer, while five-hour usage uses the brighter cyan inner/lower layer. Each quota changes to its own deep-red or bright-red warning palette without blinking; only the chest lens blinks. In dual mode, the lens follows whichever window has less remaining usage. The progress display can be rendered as paired luminous bars or nested circular rings:
+## How the character state is calculated
 
-- Above the warning threshold: blue energy lens and cyan quantum UI typography;
-- Below the threshold: the original red warning lens with synchronized red/pink ion typography;
-- At 0%: the entire chest enters a low-contrast stone state and the UI ion particles go dormant.
+Choose Codex, Claude Code or an aggregate in Settings. **The five-hour window takes priority. Weekly is used only when the target has no five-hour limit.** A declared five-hour window that is missing a value, stale or past reset remains pending; it does not fall back to weekly.
 
-The monitor icon is a transparent multi-size device cutout. Small tray sizes emphasize the recognizable U-shaped top, while larger sizes show the complete device. The desktop ChatGPT launcher shortcut may continue to use a separate standard ChatGPT icon.
+Aggregation gives each selected account equal weight and averages each period separately:
 
-![Normal state](docs/images/demo-normal.png)
-![Warning state](docs/images/demo-warning.png)
-![Stone state](docs/images/demo-stone.png)
+| Period | Codex | Claude Code | Aggregate |
+| --- | ---: | ---: | ---: |
+| Five-hour | 20% | 80% | 50% |
+| Overall weekly | 40% | 80% | 60% |
 
-## Download
+The example uses **50%** to control the character. A valid controlling period can be used even if another period is incomplete. If any selected account lacks valid data for the controlling period, the result stays pending; missing accounts are not silently excluded.
 
-Download the Windows portable package from the [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v1.0.6-en). Extract the complete ZIP and start `ChatGPTCodexUsageMonitor.exe`. The full package includes the official Codex CLI executable and its license/notice files. The repository's Latest release remains the Chinese edition; the English edition has its own `-en` tag.
+The default warning threshold is 20% or less; a real 0% produces the stone state. Signed-out, unavailable, older-than-three-minute or reset-expired data is not guessed to be 0% or 100%. Model-specific limits remain in the detailed account view and are not treated as overall weekly allowance. An average across providers is a comparison of percentages, not a transferable shared allowance pool, token count, context-window statistic or API bill.
 
-The first run requires:
+## Authentication, data and limitations
 
-1. ChatGPT for Windows installed from Microsoft Store/MSIX;
-2. A ChatGPT account signed in to the desktop app;
-3. Codex CLI signed in through its official ChatGPT login flow.
+Codex uses the bundled official CLI App Server for login and usage requests. Claude Code uses its unmodified official CLI for login and attempts to read its official `/usage` screen. Opening a usage webpage does not mark an account as connected. If official first-run setup is required, the application offers a user-initiated setup entry and does not accept prompts on the user's behalf.
 
-The monitor does not copy OAuth tokens, read cookies, install a service, require administrator access, or add a startup task. It communicates with the local Codex App Server and only displays the returned usage fields.
+Settings and independent account data live under `%LOCALAPPDATA%\TigaEnergyMonitorV2`. Only the old refresh interval, warning threshold and always-on-top preference are migrated; old credentials are not copied. The official components manage their own separate authorization data. See the [integration notes](app/integration-notes.txt).
 
-v1.0.6 restarts App Server about one second after the first authentication failure so the official CLI reloads its login state. Continued sign-out uses the existing 60-second-to-10-minute backoff, with a fresh connection on each retry; clicking Refresh reconnects immediately. Successful reads restore normal polling. Queued errors or snapshots from older connections cannot overwrite the new connection's data. The HUD does not read or modify credentials.
+The application is unsigned. Real authorized quota reading still needs end-to-end verification, and Claude's experimental parser may need updates when the official interface changes. Only recognizable, returned usage windows are shown; subscription plans need not expose identical periods.
 
-Use **Display and appearance** in the tray menu to choose **Auto quota (single / dual)** or **Weekly only**, and **Light-energy bars** or **Light-energy rings**. These choices persist across restarts. At the default 80% size and 100% Windows display scaling, compact rings are about 224×72 and compact bars about 240×72. Hover over the quota for full reset timestamps and account-plan details. The footer shows the data age, not real-time token activity.
+## Source and build
 
-## Isolated sample preview
+The v2 application is in [app/](app/), reusing the legacy C++ quota parser and energy-state core. Root-level `src/`, `include/`, `resources/`, `tests/` and old build scripts remain available for v1. They are not the v2 installation entry point.
 
-After building, run `powershell -ExecutionPolicy Bypass -File .\scripts\preview.ps1 -View ring -State normal -Scale 85`. Use `-State warning` or `-State stone` for the other visual states. Add `-ProAccount` to simulate a main quota with only a weekly period, while a separate model still has two periods. This is a test scenario, not a hardcoded assumption about a subscription.
-
-Close an existing preview before changing its launch options. Preview mode uses sample data, a separate window and single-instance lock, no quota connection, and no writes to live settings or logs. Its menus can change sample state, layout, scale, and rings/bars. The installed monitor remains unaffected.
-
-## Build from source
-
-Requirements:
-
-- Windows 10 version 1903 or later; Windows 11 x64 recommended;
-- Visual Studio/MSVC with C++20 and CMake;
-- PowerShell 5+;
-- Python with Pillow only if regenerating the transparent application icon.
-
-From a Developer PowerShell or a prompt with MSVC available:
+Use Windows x64, Node.js 24, pnpm, MSVC with C++20, and CMake 3.25+. From an MSVC x64 developer terminal at the repository root:
 
 ```powershell
-cmd /c scripts\build-release.cmd
+cd app
+pnpm install --frozen-lockfile
+pnpm --dir backend/claude-runtime install --frozen-lockfile
 ```
 
-The build regenerates the theme variants, compiles the Win32 application, runs all six automated test suites, and packages the verified official Codex CLI. The CLI binary is intentionally ignored by Git and is distributed through Releases instead of the source repository. The `main` branch builds the Chinese UI; use the `v1.0.6-en` tag or its English source ZIP to build the English UI.
+Large third-party runtimes are not committed. Extract the portable package from the **same release**, then copy these directories while retaining its accompanying licenses and notices:
 
-## Project layout
+| Portable package path | Source checkout path |
+| --- | --- |
+| `resources/app/runtime/` | `app/runtime/` |
+| `resources/app/native/claude/` | `app/native/claude/` |
 
-```text
-src/          C++ application and rendering code
-include/      Public headers and state models
-docs/         Architecture, protocol, security, performance, and visual notes
-resources/    Theme images, transparent icon, Win32 resources
-scripts/      Build, asset, shortcut, and icon-generation helpers
-tests/        Unit, lifecycle, fake-server, and theme-alignment tests
+Continue inside `app/`:
+
+```powershell
+cmd /c native\core-helper\build.cmd
+cmd /c native\launch-watcher\build.cmd
+node --test tests/*.test.cjs
+node tests/ui-e2e.cjs
+node scripts/package.cjs ../../outputs/portable --locale=en
 ```
 
-## License and artwork
+The native scripts rebuild the project's helpers in `runtime/` and run their C++ checks. GUI tests use isolated data and do not require real login. Packaging writes a complete English portable directory to `outputs/portable/` alongside the repository; distribute that directory as a whole. Omit `--locale=en` to build the Chinese edition. Both editions use the same source and independent application profile.
 
-The source code and build scripts are released under the MIT License. The chest artwork and monitor icon are governed separately by [ASSET-LICENSE.md](ASSET-LICENSE.md); the MIT grant does not automatically grant reuse of those images. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the official Codex CLI notice.
+Archived documentation: [v1 Chinese](docs/README-v1.zh-CN.md) · [v1 English](docs/README-v1.en.md).
 
-This is a personal, unofficial utility and is not affiliated with OpenAI, Microsoft, or any character/art rights holder.
+## Assets and licensing
+
+Source code and build scripts use the [MIT License](LICENSE). Character images, wallpaper-derived clips and icons **do not inherit that grant**. See [ASSET-LICENSE.md](ASSET-LICENSE.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The three states originate from user-selected Wallpaper Engine scenes by **柊明**. Image editing generated transparent cutouts with some reconstruction, then local light from the source videos was composited onto those fixed bodies. This is not a claim of pixel-identical preservation of the original character animation. Runtime independence from Wallpaper Engine does not change the assets' separate rights and redistribution conditions. Provenance and processing details are in [ASSET-NOTES.txt](app/ASSET-NOTES.txt) and the asset manifests.
+
+This is a personal, unofficial utility, unaffiliated with OpenAI, Anthropic, Microsoft or the character/art rights holders.

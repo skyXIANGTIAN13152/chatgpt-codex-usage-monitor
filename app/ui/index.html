@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>迪迦额度悬浮窗</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="energy-gauge.css">
+  <link rel="stylesheet" href="widget-layout.css">
+  <link rel="stylesheet" href="i18n.css">
+</head>
+<body class="widget-page">
+  <main class="floating-widget" aria-label="迪迦与账号额度">
+    <div class="scene-stage" id="scene-stage" data-state="full" title="拖动迪迦移动位置">
+      <video class="scene-video is-visible" id="video-a" muted loop playsinline preload="auto" poster="assets/characters/full.png"><source src="assets/characters/full.webm" type="video/webm"></video>
+      <video class="scene-video" id="video-b" muted loop playsinline preload="auto"></video>
+    </div>
+    <svg class="energy-thread" viewBox="0 0 72 48" aria-hidden="true"><defs><linearGradient id="energy-thread-light"><stop stop-color="currentColor" stop-opacity="0"/><stop offset=".45" stop-color="currentColor" stop-opacity=".55"/><stop offset="1" stop-color="currentColor" stop-opacity=".08"/></linearGradient></defs><path d="M2 29C26 36 38 5 70 5"/></svg>
+    <div class="widget-info">
+      <span id="preview-badge" hidden>动画预览</span>
+      <div class="widget-accounts" aria-label="账号剩余额度">
+        <div id="provider-list"></div>
+        <div class="no-providers" id="no-providers" hidden><span>额度已隐藏</span><button class="text-button" data-window="settings">在设置中选择账号</button></div>
+      </div>
+      <footer class="widget-footer">
+        <span class="widget-status" id="sync-status"><i></i><span id="scene-mode">等待登录</span></span>
+        <div class="widget-actions">
+        <button class="icon-button" id="refresh" title="刷新额度" aria-label="刷新额度"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>
+        <button class="icon-button" id="pause" title="暂停动画" aria-label="暂停动画" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+        <button class="icon-button" id="pin" title="窗口置顶" aria-label="窗口置顶" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 4v2H6v-2l4-4zM12 15v6"/></svg></button>
+        <button class="icon-button" id="settings-open" title="设置" aria-label="打开设置" data-window="settings"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></button>
+        <button class="icon-button" id="close" title="收进托盘" aria-label="收进托盘" data-window="close"><svg viewBox="0 0 24 24"><path d="M5 13h14"/></svg></button>
+        </div>
+      </footer>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

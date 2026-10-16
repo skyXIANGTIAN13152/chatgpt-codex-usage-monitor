@@ -1,0 +1,30 @@
+迪迦额度显示器 v2.0.0：集成说明（2026-10-17）
+
+宿主使用独立 Electron，账号资料位于 %LOCALAPPDATA%\TigaEnergyMonitorV2。旧版仅迁移 refreshSeconds / warningThreshold / alwaysOnTop。不会读取或复制原 Codex、Claude 的登录凭据。两个自动唤起选项默认关闭；开发和测试模式不会注册启动项。
+
+主界面为 420×246 DIP 透明无边框悬浮窗，默认置顶、不占任务栏、不主动抢焦点；缩放为80%/100%/125%/150%。账号管理和设置在独立560×720窗口中。位置单独保存到window-position.json，重启后恢复并限制在有效显示器工作区。三态预览仅存于内存，不能改变真实额度或账号状态。人物和文字的原生形状区域之外允许鼠标穿透；区域由主界面提供，宿主校验范围与数量并随缩放向外取整，设置窗口仍为普通矩形。
+
+Codex 使用随附官方 app-server，以及旧版 C++ 核心的额度解析和能量判定。Claude 使用未改动的官方 Claude Code 2.1.292，通过 auth login 打开官方授权流程，通过 auth status 查询登录状态；登录凭据由官方组件保存在独立 CLAUDE_CONFIG_DIR。
+
+Claude 额度读取是实验性兼容功能：通过 ConPTY 打开官方 /usage 界面并严格解析 Current session / Current week 数据，不调用未公开 HTTP API，不发送生成请求。首次官方设置、界面文案变化或暂时没有额度时返回 quota_pending；打开官方用量网页本身不会被标记为已连接。检测到首次信任/条款/登录设置时返回 needsSetup；用户点击“完成官方首次设置”才打开可见的原版官方终端，使用同一独立profile。不会替用户接受提示；终端关闭后重新读取官方状态。未经用户实际登录，登录后额度读取尚未端到端验证。缺少准确时区的重置时间保留 resetLabel，不猜测时间。
+
+备用 importStatusLine 接口只解析官方文档中的 rate_limits.five_hour / seven_day 字段；该字段通常只在支持订阅计划的会话首次响应后出现，不能当成独立后台查询接口。
+
+官方资料：
+https://code.claude.com/docs/en/cli-reference
+https://code.claude.com/docs/en/commands
+https://code.claude.com/docs/en/statusline
+https://code.claude.com/docs/en/authentication
+https://code.claude.com/docs/en/legal-and-compliance
+https://code.claude.com/docs/en/setup
+
+Claude binary 固定版本：2.1.292 / win32-x64。
+下载：https://downloads.claude.ai/claude-code-releases/2.1.292/win32-x64/claude.exe
+SHA256：eb95bb65955f8b1702e800815f9a2c0388a5de0f196c354c7ee1dd5cb9a2ba23
+已核对官方 manifest；Windows 签名状态 Valid，签名者 Anthropic, PBC。文件位于 native/claude/claude.exe，未修改。预装和运行官方组件须遵守上述官方条款；这不等于本产品有第三方 Claude OAuth 授权。
+
+Claude worker 由随包 runtime/node.exe（24.19.0）运行，避免 Electron native ABI 不匹配。依赖固定在 backend/claude-runtime：node-pty 1.1.0、@xterm/headless 6.0.0；锁文件已保存。打包复制 node_modules 时必须展开 pnpm 符号链接，例如 Node fs.cpSync(source, destination, {recursive:true, dereference:true})；保留 node-pty 的 prebuilds/win32-x64 原始文件和许可文件，不依赖全局 Node 模块。
+
+已验证：相关自动测试通过；真实 Electron 的 IPC 校验、沙盒、设置持久化、事件订阅、四档悬浮窗缩放、双窗口状态同步、预览与真实额度隔离、位置恢复、设置窗口独立关闭与主窗关闭入托盘通过；在全新隔离目录启动两套官方组件均准确返回 signed_out。未替用户发起登录。能量只使用所选账号中最近 180 秒的有效额度，重置过期或未知值不推断为满额度。
+
+原生构建：使用已配置的 MSVC x64 开发命令环境与 Windows SDK，将 CMake 3.25+ 和 CTest 加入 PATH，然后运行 native/core-helper/build.cmd 与 native/launch-watcher/build.cmd。两者会执行配置、构建和 CTest，不内置开发者磁盘路径。若需使用已有工具链包，可显式设置 TIGA_TOOLCHAIN_ROOT；目录结构为 msvc/setup_x64.bat 和 cmake-*-windows-x86_64/bin。源码及构建脚本沿用 MIT；素材和第三方运行组件的许可范围独立。

@@ -1,0 +1,5 @@
+The process image lookup and Toolhelp enumeration in `main.cpp` are adapted from `ProcessImageName` and `FindRunningChatGpt` in the existing monitor's [`src/chatgpt_locator.cpp`](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/blob/03083c0bec361046f6b9a0e71d4e64dc75d10603/src/chatgpt_locator.cpp). The new code retains complete image paths, adds scoped handle ownership, recognizes exact Codex/ChatGPT/Claude names, and excludes the entire new monitor installation directory.
+
+The JSON parser is compiled directly from the previously copied legacy core at `../core-helper/upstream/src/json.cpp`; its license is preserved under that directory. No credentials, window contents, or process command lines are read. The helper only queries process image paths and its own settings JSON.
+
+`build.cmd` builds the Windows GUI-subsystem helper to `../../runtime/tiga-launch-watcher.exe` and runs isolated CTest checks. The helper never edits startup registration; the host module owns its single HKCU Run value. Closing both settings switches exits the helper within one 2.5-second poll. It never closes the main application when an external provider exits.

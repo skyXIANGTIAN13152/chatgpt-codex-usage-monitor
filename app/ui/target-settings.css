@@ -1,0 +1,20 @@
+.target-settings #energy-target { min-width:140px; max-width:48%; }
+.target-members { margin:10px 0 0; padding:0; border:0; min-width:0; }
+.target-members legend { padding:0; font-size:11px; color:var(--muted); }
+.target-member-options { display:flex; flex-wrap:wrap; gap:12px 24px; margin-top:11px; }
+.target-member { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); cursor:pointer; }
+.target-member input { appearance:auto; width:14px; height:14px; margin:0; accent-color:var(--accent); }
+.target-member input:disabled { cursor:default; opacity:.75; }
+.target-members .setting-hint { margin-top:9px; }
+.target-result { margin-top:16px; padding-top:13px; border-top:1px solid var(--line); }
+.target-result-heading { display:flex; align-items:baseline; justify-content:space-between; gap:14px; }
+.target-result-heading > span { color:var(--muted); font-size:11px; line-height:1.7; }
+.target-result-heading strong { color:var(--text); font:650 20px/1.4 Bahnschrift,"Segoe UI",sans-serif; white-space:nowrap; }
+.target-periods { list-style:none; padding:0; margin:10px 0 0; }
+.target-period { display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:4px 0; color:#bbcbdd; font-size:11px; line-height:1.6; }
+.target-period > span:last-child { text-align:right; }
+.target-period small { display:block; color:var(--muted); font-size:10px; }
+.target-explanation { margin-top:9px; color:var(--muted); font-size:11px; line-height:1.8; }
+.target-result[data-state=incomplete] .target-explanation { color:#cfbfa5; }
+.target-save-status { min-height:15px; margin-top:8px; color:var(--muted); font-size:10px; line-height:1.5; }
+.target-save-status[data-error=true] { color:#e3a3a6; }

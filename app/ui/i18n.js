@@ -1,0 +1,182 @@
+// One explicit locale comes from the packaged app through the isolated bridge.
+export const locale = globalThis.window?.monitor?.locale === 'en' ? 'en' : 'zh-CN';
+export const isEnglish = locale === 'en';
+export const dateLocale = isEnglish ? 'en-US' : 'zh-CN';
+
+const english = {
+  '、':', ',
+  '迪迦额度悬浮窗':'Tiga Quota Monitor',
+  '迪迦与账号额度':'Tiga and account quotas',
+  '拖动迪迦移动位置':'Drag Tiga to move the widget',
+  '动画预览':'Animation preview',
+  '账号剩余额度':'Remaining account quotas',
+  '额度已隐藏':'Quotas hidden',
+  '在设置中选择账号':'Choose accounts in Settings',
+  '等待登录':'Sign in to begin',
+  '刷新额度':'Refresh quotas',
+  '暂停动画':'Pause animation',
+  '播放动画':'Play animation',
+  '播放动画（当前为静态画面）':'Play animation (currently still)',
+  '窗口置顶':'Keep on top',
+  '设置':'Settings',
+  '打开设置':'Open Settings',
+  '收进托盘':'Hide to tray',
+  '悬浮窗设置':'Widget settings',
+  '迪迦额度显示器':'Tiga Quota Monitor',
+  '关闭设置':'Close Settings',
+  '浮窗显示':'Widget display',
+  '显示 ChatGPT 账号的 Codex 额度':'Show your ChatGPT account’s Codex quota',
+  '显示 Claude Code 账号的订阅额度':'Show your Claude Code subscription quota',
+  '额度显示模式':'Quota display',
+  '二选一，均保留五小时、总周和刷新信息':'Choose bars or rings. Both show 5-hour, weekly and refresh details.',
+  '光能条':'Energy bars',
+  '光能环':'Energy rings',
+  '浮窗大小':'Widget size',
+  '拖动迪迦或空白区域移动位置':'Drag Tiga or an empty area to move the widget',
+  '始终置顶':'Always on top',
+  '账号开关只控制浮窗显示，不改变下方选择的状态目标。':'Account switches only change visibility. They do not change the state target below.',
+  '显示目标':'State target',
+  '迪迦状态的目标':'Quota that controls Tiga',
+  '光能条或环始终显示各账号自身额度':'Bars and rings always show each account’s own quota',
+  '聚合模式':'Aggregate',
+  '参与聚合的账号':'Accounts to aggregate',
+  '至少选择一个账号。要移除最后一个账号，请先选择另一个。':'Select at least one account. Select another before removing the last one.',
+  '迪迦优先按五小时额度判断，没有五小时限制时才按总周额度。聚合时各账号等权，分别计算同周期平均值；五小时数据暂缺或过期时等待同步。':'Tiga follows the 5-hour quota first, or the weekly quota when no 5-hour limit exists. Aggregation gives each account equal weight within each period. Missing or expired 5-hour data waits for a refresh.',
+  'Codex · 当前控制额度':'Codex · Controlling quota',
+  '待同步':'Pending',
+  '等待所选目标的有效额度。':'Waiting for valid quota data from the selected target.',
+  '迪迦动画':'Tiga animation',
+  '跟随真实额度':'Follow live quota',
+  '预览动画':'Preview animation',
+  '满能量':'Full energy',
+  '红灯状态':'Low energy',
+  '石化状态':'Petrified',
+  '点击后在悬浮窗中预览，账号额度保持真实显示。':'Preview an animation in the widget. Account quotas continue to show live data.',
+  '迪迦红灯阈值':'Tiga’s low energy threshold',
+  '各计量条独立在低于 50% 时变色，耗尽后石化':'Each meter changes color below 50% and turns to stone at zero',
+  '减少动态效果':'Reduce motion',
+  '使用静态画面':'Use still images',
+  '迪迦跟随上方选择的显示目标。未登录、已过期或聚合数据不完整时，不判断能量。':'Tiga follows the target selected above. Energy is unknown when signed out, data has expired, or the controlling aggregate period is incomplete.',
+  '自动启动':'Automatic launch',
+  '随 Codex 启动':'Launch with Codex',
+  '打开 Codex 时自动显示浮窗':'Show the widget when Codex starts',
+  '随 Claude Code 启动':'Launch with Claude Code',
+  '打开 Claude Code 时自动显示浮窗':'Show the widget when Claude Code starts',
+  '两个选项可同时开启。关闭对应软件后，浮窗仍可独立运行。':'Both options can be enabled. The widget keeps running independently after either app closes.',
+  '账号与完整额度':'Accounts and all quotas',
+  '在官方页面登录，登录状态分别保存在本机。Claude Code 的额度同步目前为试验功能。':'Sign in on the official pages. Each sign-in is stored separately on this computer. Claude Code quota synchronization is experimental.',
+  'v2.0.0 · 设置自动保存':'v2.0.0 · Changes save automatically',
+  '完成':'Done',
+  '请在桌面程序中使用。':'Please use the desktop app.',
+  '未登录':'Signed out',
+  '连接中':'Connecting',
+  '等待授权':'Awaiting sign-in',
+  '已连接':'Connected',
+  '等待同步':'Waiting for quota',
+  '连接异常':'Connection error',
+  '暂时无法完成，请稍后重试。':'Unable to complete this action. Please try again later.',
+  '尚未刷新':'Not refreshed yet',
+  '更新时间异常':'Invalid refresh time',
+  '刚刚刷新':'Just refreshed',
+  '{count}秒前刷新':'Updated {count}s ago',
+  '{count}分钟前刷新':'Updated {count}m ago',
+  '{count}小时前刷新':'Updated {count}h ago',
+  '{count}天前刷新':'Updated {count}d ago',
+  '重置时间暂未提供':'Reset time unavailable',
+  '重置时间已到，等待重新同步':'Reset time reached; waiting for a refresh',
+  '{days} 天 {hours} 小时':'{days}d {hours}h',
+  '{hours} 小时 {minutes} 分钟':'{hours}h {minutes}m',
+  '{minutes} 分钟':'{minutes}m',
+  '{duration}后重置':'Resets in {duration}',
+  '5小时':'5h',
+  '5 小时':'5 hours',
+  '5 小时额度':'5-hour quota',
+  '五小时':'5-hour',
+  '总周':'Weekly',
+  '总周额度':'Overall weekly quota',
+  '每周':'Weekly',
+  '每周 · Sonnet':'Weekly · Sonnet',
+  '其他额度':'Other quota',
+  '短周期':'Short period',
+  '有效':'available',
+  '额度':'Quota',
+  '可用额度':'Available quota',
+  '使用 ChatGPT 账号登录':'Sign in with ChatGPT',
+  '使用 Claude Code 账号登录':'Sign in with Claude Code',
+  '数据已过期，等待最新额度':'Data expired; waiting for fresh quota',
+  '{value}% 剩余':'{value}% remaining',
+  '{label}：{value}':'{label}: {value}',
+  ' · 更多模型额度见设置':' · More model quotas in Settings',
+  '{label}剩余':'{label} remaining',
+  '{name} · 外环：{outer}{inner} · 中央：{center}':'{name} · Outer: {outer}{inner} · Center: {center}',
+  ' · 内环：{label}':' · Inner: {label}',
+  '{name}额度':'{name} quota',
+  '等待官方登录 · 取消':'Awaiting sign-in · Cancel',
+  '正在连接账号…':'Connecting account…',
+  '请在打开的官方页面完成登录，完成后自动同步。':'Complete sign-in on the official page that opened. Quotas will sync automatically.',
+  '正在连接账号，请稍候…':'Connecting your account. Please wait…',
+  '取消登录':'Cancel sign-in',
+  '完成官方首次设置':'Complete initial setup',
+  '等待额度 · 点击重新同步':'Quota pending · Retry',
+  '官方用量页':'Official usage page',
+  '退出登录':'Sign out',
+  '能量充足':'Full energy',
+  '等待恢复':'Recovering',
+  '这段动画暂时无法播放，已保留对应静态画面。':'This animation could not play. Its still image is shown instead.',
+  '预览 · {scene}':'Preview · {scene}',
+  '动画预览 · {scene}':'Preview · {scene}',
+  '刷新中 · {age}':'Refreshing · {age}',
+  '目标额度待同步':'Target quota pending',
+  '动画预览，不代表真实额度':'Animation preview; does not represent live quota',
+  '每 {seconds} 秒刷新；{age}{oldest}；悬停额度查看重置倒计时':'Refreshes every {seconds} {secondUnit}; {age}{oldest}. Hover over a quota for its reset countdown.',
+  '（按所选应用中较早的一次刷新）':' (oldest refresh among selected apps)',
+  '至少保留一个聚合成员；请先选择另一个账号':'Keep at least one account; select another before removing this one',
+  '{name} · 当前控制额度':'{name} · Controlling quota',
+  '{value} 剩余':'{value} remaining',
+  '{count} / {total} 个账号已同步':'{count} / {total} {accountUnit} synced',
+  ' · 平均':' · Average',
+  '正在更新所选目标的实际额度。':'Updating live quota for the selected target.',
+  '各选中账号等权计算，当前由{period}额度决定迪迦状态；隐藏账号不会改变计算结果。':'Selected accounts have equal weight. The {period} quota currently controls Tiga; hiding an account does not change the calculation.',
+  '当前由此账号的{period}额度决定迪迦状态；隐藏账号不会改变此目标。':'This account’s {period} quota currently controls Tiga. Hiding the account does not change the target.',
+  '部分额度周期暂不能合并。聚合结果尚不完整，暂不判断迪迦状态；已同步的可比周期仍可查看。':'Some quota periods cannot be combined yet. Tiga’s energy is unknown until the controlling period is complete. Synced comparable periods remain visible.',
+  '{names} 的优先周期额度待同步。':'The controlling quota for {names} is pending. ',
+  '优先周期尚未同步。':'The controlling period has not synced. ',
+  '暂不判断迪迦状态；其他已同步周期仍可查看。':'Tiga’s energy is unknown. Other synced periods remain visible.',
+  '{name} 尚未登录，请在下方账号区域登录。':'{name} is signed out. Sign in in the Accounts section below.',
+  '请先在官方页面完成 {name} 登录。':'Complete {name} sign-in on the official page first.',
+  '{name} 暂无有效额度，等待同步或更新已过期的数据。':'No valid {name} quota is available. Waiting to sync or refresh expired data.',
+  '正在保存选择…':'Saving selection…',
+  '未能保存，请检查当前选择后重试。':'Could not save. Check your selection and try again.',
+  '显示目标未能保存，请重试。':'Could not save the state target. Please try again.',
+  '浮窗正在预览动画，不代表实际额度。点击“跟随真实额度”退出预览。':'The widget is previewing an animation, not live energy. Choose “Follow live quota” to leave preview.',
+  '至少保留一个聚合成员。':'Keep at least one account in the aggregate.',
+};
+
+export function t(template, values = {}) {
+  const text = isEnglish && Object.hasOwn(english, template) ? english[template] : template;
+  const substitutions = {...values, secondUnit:Number(values.seconds)===1?'second':'seconds', accountUnit:Number(values.total)===1?'account':'accounts'};
+  return String(text ?? '').replace(/\{(\w+)\}/g, (match, key) => Object.hasOwn(substitutions, key) ? String(substitutions[key]) : match);
+}
+
+export function formatDate(value) { return new Date(value).toLocaleString(dateLocale); }
+
+// Translate only the initial, application-owned HTML. Account names, plan names
+// and unknown server text are never traversed or modified after rendering.
+export function localizeDocument(root = document) {
+  root.documentElement.lang = isEnglish ? 'en' : 'zh-CN';
+  if (!isEnglish) return;
+  const walker = root.createTreeWalker(root.documentElement, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest('script,style')) continue;
+    const original = node.textContent;
+    const text = original.trim();
+    if (Object.hasOwn(english, text)) node.textContent = original.replace(text, t(text));
+  }
+  for (const element of root.querySelectorAll('[title],[aria-label],[placeholder],[alt]')) {
+    for (const attribute of ['title','aria-label','placeholder','alt']) {
+      const text = element.getAttribute(attribute);
+      if (text && Object.hasOwn(english, text)) element.setAttribute(attribute, t(text));
+    }
+  }
+}

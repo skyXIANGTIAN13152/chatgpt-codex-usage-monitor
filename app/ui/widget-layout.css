@@ -1,0 +1,10 @@
+/* Account content and its tools share one flow; hidden accounts leave no slot. */
+.widget-info { position:absolute; left:245px; top:44px; width:166px; display:flex; flex-direction:column; gap:12px; min-width:0; background:transparent; }
+.widget-info .widget-accounts { position:static; width:100%; height:auto; }
+.widget-info .widget-accounts #provider-list { height:auto; justify-content:flex-start; }
+.widget-info .widget-accounts .no-providers { height:auto; justify-content:flex-start; }
+.widget-info .widget-footer { position:static; width:100%; height:auto; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.widget-info .widget-actions { order:0; align-self:flex-start; }
+.widget-info .widget-status { position:static; order:1; width:max-content; max-width:100%; min-height:14px; }
+.widget-info .widget-status > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.widget-info #preview-badge { position:absolute; left:0; top:-17px; max-width:100%; line-height:12px; overflow:hidden; text-overflow:ellipsis; }

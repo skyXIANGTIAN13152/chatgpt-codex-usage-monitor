@@ -1,0 +1,13 @@
+/* English keeps the same transparent geometry and uses shorter period names. */
+html[lang=en] .widget-accounts .quota-label { font-size:8.5px; }
+html[lang=en] .widget-accounts .quota-number small { font-size:7.5px; }
+html[lang=en] .widget-accounts .quota-ring-value small { font-size:7px; }
+html[lang=en] .widget-accounts .quota-line { gap:2px; }
+html[lang=en] .widget-accounts .provider-copy { line-height:1.5; }
+html[lang=en] .widget-accounts .login-link { max-width:100%; white-space:normal; }
+html[lang=en] .settings-page .setting-row > span { min-width:0; }
+html[lang=en] .settings-page .setting-row select { flex-shrink:0; }
+html[lang=en] .settings-page .target-result-heading { flex-wrap:wrap; gap:4px 14px; }
+html[lang=en] .settings-page .target-period { flex-wrap:wrap; gap:2px 14px; }
+html[lang=en] .settings-page .quota-line { flex-wrap:wrap; gap:5px 8px; }
+html[lang=en] .settings-page .quota-label { line-height:1.5; }

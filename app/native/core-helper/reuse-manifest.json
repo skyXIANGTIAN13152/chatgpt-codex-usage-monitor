@@ -1,0 +1,82 @@
+{
+  "sourceRepository": "https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor",
+  "sourceCommit": "03083c0bec361046f6b9a0e71d4e64dc75d10603",
+  "files": [
+    {
+      "original": "include/common.h",
+      "copy": "upstream/include/common.h",
+      "sha256": "1628B3D3C3E6D93958ACF4685FF317575F30583FCA98C7E442C6D4A123855DB5",
+      "modified": false
+    },
+    {
+      "original": "include/json.h",
+      "copy": "upstream/include/json.h",
+      "sha256": "712084E480BADFDCCAB62C5F8ACBF37566C3B805CD39ED2FA334BA3CEC01E624",
+      "modified": false
+    },
+    {
+      "original": "include/rate_limits.h",
+      "copy": "upstream/include/rate_limits.h",
+      "sha256": "7402231A125FED5C88213B41B51CCBB3422E150740F681ED36F24288B486CFF6",
+      "modified": false
+    },
+    {
+      "original": "include/energy_indicator.h",
+      "copy": "upstream/include/energy_indicator.h",
+      "sha256": "784EC77108E6AAC5A640E99BE70689E7FA2075B9C2653FAFEA1A93D1F938A7B2",
+      "modified": false
+    },
+    {
+      "original": "src/json.cpp",
+      "copy": "upstream/src/json.cpp",
+      "sha256": "867AFE16AF0E8833C4B540DF8E38E3AEDF48EA556C8125B18ABAE2B6815A05AB",
+      "modified": false
+    },
+    {
+      "original": "src/rate_limits.cpp",
+      "copy": "upstream/src/rate_limits.cpp",
+      "sha256": "6503DEF07583F534F5251C4CA3856850383E64427BA1DE66123248E661E64402",
+      "modified": false
+    },
+    {
+      "original": "src/energy_indicator_state.cpp",
+      "copy": "upstream/src/energy_indicator_state.cpp",
+      "sha256": "773A2027B419E64EFC4014CEF65A53C8A615882CE2FC95621874DF86782B5384",
+      "modified": false
+    },
+    {
+      "original": "LICENSE",
+      "copy": "upstream/LICENSE",
+      "sha256": "D796525E54079592D6C0EE008D162C01B98346D1572DC6C8A901983072B0965C",
+      "modified": false
+    }
+  ],
+  "reusedAlgorithms": [
+    "ParseJson",
+    "ParseRateLimitMessage",
+    "MergeSparseRateLimitSnapshot",
+    "SelectCodexQuotaWindows",
+    "ClassifyQuotaWindow",
+    "ComputeEnergyState"
+  ],
+  "tests": {
+    "original": "tests/test_main.cpp",
+    "reusedFunctions": [
+      "TestRemainingPercent",
+      "TestDataAge",
+      "TestParsing",
+      "TestResetAndStale",
+      "TestQuotaWindowSelection",
+      "TestProQuotaAdaptation",
+      "TestSydneyDst",
+      "TestEnergyState"
+    ],
+    "checks": 102,
+    "changes": "Only core includes and entry point extracted; test bodies preserved"
+  },
+  "boundaryCode": [
+    "main.cpp",
+    "../../backend/core-bridge.cjs"
+  ],
+  "artifact": "../../runtime/monitor-core.exe"
+}

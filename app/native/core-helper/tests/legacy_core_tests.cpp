@@ -1,0 +1,300 @@
+#include "energy_indicator.h"
+#include "rate_limits.h"
+#include <cmath>
+#include <iostream>
+#include <string>
+
+namespace {
+int failures = 0;
+int checks = 0;
+
+#define CHECK(condition) do { ++checks; if (!(condition)) { \
+  ++failures; std::cerr << "FAIL " << __FILE__ << ':' << __LINE__ << " : " #condition "\n"; \
+} } while (false)
+
+void TestRemainingPercent() {
+  CHECK(monitor::RemainingPercent(0) == 100);
+  CHECK(monitor::RemainingPercent(45) == 55);
+  CHECK(monitor::RemainingPercent(100) == 0);
+  CHECK(monitor::RemainingPercent(-20) == 100);
+  CHECK(monitor::RemainingPercent(130) == 0);
+}
+
+void TestDataAge() {
+  using namespace std::chrono;
+  const system_clock::time_point now{seconds(1900000000)};
+  CHECK(monitor::FormatDataAge({}, now) == L"尚未同步");
+  CHECK(monitor::FormatDataAge(now, now) == L"刚更新");
+  CHECK(monitor::FormatDataAge(now - seconds(59), now) == L"刚更新");
+  CHECK(monitor::FormatDataAge(now - minutes(1), now) == L"1分前");
+  CHECK(monitor::FormatDataAge(now - minutes(59), now) == L"59分前");
+  CHECK(monitor::FormatDataAge(now - hours(1), now) == L"1时前");
+  CHECK(monitor::FormatDataAge(now - hours(23), now) == L"23时前");
+  CHECK(monitor::FormatDataAge(now - hours(24), now) == L"1天前");
+  CHECK(monitor::FormatDataAge(now + hours(2), now) == L"刚更新");
+}
+
+void TestParsing() {
+  std::string error;
+  auto normal = monitor::ParseRateLimitMessage(
+      R"({"id":6,"result":{"rateLimits":{"limitId":"codex","limitName":null,"primary":{"usedPercent":25,"windowDurationMins":15,"resetsAt":1730947200},"secondary":null},"credits":{"hasCredits":true,"balance":7.5},"planType":"plus","newFutureField":{"x":1}}})", &error);
+  CHECK(normal.has_value());
+  CHECK(normal && normal->windows.size() == 1);
+  CHECK(normal && normal->windows[0].remainingPercent == 75);
+  CHECK(normal && normal->credits.balance && *normal->credits.balance == 7.5);
+  CHECK(normal && normal->planType == "plus");
+
+  auto missing = monitor::ParseRateLimitMessage(
+      R"({"result":{"rateLimits":{"limitId":"codex","primary":null,"secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":"2030-01-01T00:00:00Z"}}}})", &error);
+  CHECK(missing && missing->windows.size() == 1);
+  CHECK(missing && missing->windows[0].windowName == "secondary");
+  CHECK(missing && missing->windows[0].remainingPercent == 50);
+
+  auto multi = monitor::ParseRateLimitMessage(
+      R"({"result":{"rateLimits":{"limitId":"legacy","primary":{"usedPercent":1}},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":40,"windowDurationMins":300,"resetsAt":1893456000},"secondary":{"usedPercent":60,"windowDurationMins":10080,"resetsAt":1893542400}},"model-x":{"limitId":"model-x","limitName":"Model X","primary":{"usedPercent":10,"resetsAt":1893456000000}}},"rateLimitResetCredits":{"availableCount":2,"credits":[]}}})", &error);
+  CHECK(multi && multi->windows.size() == 3);
+  CHECK(multi && multi->credits.resetCreditsAvailable && *multi->credits.resetCreditsAvailable == 2);
+
+  auto unlimited = monitor::ParseRateLimitMessage(
+      R"({"result":{"rateLimits":{"usedPercent":0},"credits":{"unlimited":true}}})", &error);
+  CHECK(unlimited && unlimited->credits.unlimited);
+
+  auto old = monitor::ParseRateLimitMessage(
+      R"({"result":{"primary":{"usedPercent":"75","windowDurationMins":60,"resetsAt":"1893456000"},"unknown":123}})", &error);
+  CHECK(old && old->windows.size() == 1);
+  CHECK(old && old->windows[0].remainingPercent == 25);
+
+  auto invalid = monitor::ParseRateLimitMessage("{bad", &error);
+  CHECK(!invalid.has_value());
+  CHECK(!error.empty());
+  auto empty = monitor::ParseRateLimitMessage(R"({"result":{"rateLimits":{"primary":null}}})", &error);
+  CHECK(empty && empty->windows.empty());
+  CHECK(empty && empty->status == monitor::DataStatus::DataUnavailable);
+
+  auto sparse = monitor::ParseRateLimitMessage(
+      R"({"method":"account/rateLimits/updated","params":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":30,"windowDurationMins":300,"resetsAt":1893456000}}}})",
+      &error);
+  CHECK(sparse && sparse->sparseUpdate);
+}
+
+void TestResetAndStale() {
+  monitor::JsonValue unixSeconds(1893456000.0);
+  monitor::JsonValue unixMillis(1893456000000.0);
+  monitor::JsonValue iso(std::string("2030-01-01T11:00:00+11:00"));
+  auto a = monitor::ParseResetTime(unixSeconds);
+  auto b = monitor::ParseResetTime(unixMillis);
+  auto c = monitor::ParseResetTime(iso);
+  CHECK(a && b && c);
+  CHECK(a && b && *a == *b);
+  CHECK(a && c && *a == *c);
+
+  monitor::RateLimitSnapshot snapshot;
+  const auto now = std::chrono::system_clock::now();
+  snapshot.lastSuccessAt = now - std::chrono::minutes(10);
+  CHECK(monitor::IsSnapshotStale(snapshot, now, std::chrono::minutes(5)));
+  snapshot.lastSuccessAt = now - std::chrono::seconds(10);
+  CHECK(!monitor::IsSnapshotStale(snapshot, now, std::chrono::minutes(5)));
+  CHECK(!monitor::DataStatusText(monitor::DataStatus::NetworkUnavailable).empty());
+}
+
+void TestQuotaWindowSelection() {
+  monitor::RateLimitSnapshot snapshot;
+  monitor::RateWindow modelWeekly;
+  modelWeekly.bucketId = "model-x";
+  modelWeekly.windowDurationMins = 10080;
+  modelWeekly.remainingPercent = 91;
+  snapshot.windows.push_back(modelWeekly);
+
+  monitor::RateWindow weekly;
+  weekly.bucketId = "codex";
+  weekly.windowName = "secondary";
+  weekly.windowDurationMins = 10080;
+  weekly.remainingPercent = 64;
+  snapshot.windows.push_back(weekly);
+
+  monitor::RateWindow fiveHour;
+  fiveHour.bucketId = "codex";
+  fiveHour.windowName = "primary";
+  fiveHour.windowDurationMins = 300;
+  fiveHour.remainingPercent = 37;
+  snapshot.windows.push_back(fiveHour);
+
+  const monitor::CodexQuotaWindows selected =
+      monitor::SelectCodexQuotaWindows(snapshot);
+  CHECK(selected.weekly != nullptr);
+  CHECK(selected.fiveHour != nullptr);
+  CHECK(selected.weekly && selected.weekly->bucketId == "codex");
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 64);
+  CHECK(selected.fiveHour && selected.fiveHour->remainingPercent == 37);
+  CHECK(monitor::ClassifyQuotaWindow(weekly) == monitor::QuotaWindowKind::Weekly);
+  CHECK(monitor::ClassifyQuotaWindow(fiveHour) == monitor::QuotaWindowKind::FiveHour);
+  CHECK(monitor::ClassifyQuotaWindow(monitor::RateWindow{}) ==
+        monitor::QuotaWindowKind::Other);
+
+  monitor::RateLimitSnapshot reversed;
+  reversed.windows = {fiveHour, weekly};
+  const monitor::CodexQuotaWindows reversedSelection =
+      monitor::SelectCodexQuotaWindows(reversed);
+  CHECK(reversedSelection.weekly && reversedSelection.weekly->remainingPercent == 64);
+  CHECK(reversedSelection.fiveHour && reversedSelection.fiveHour->remainingPercent == 37);
+
+  monitor::RateLimitSnapshot weeklyOnly;
+  weeklyOnly.windows.push_back(weekly);
+  const monitor::CodexQuotaWindows single =
+      monitor::SelectCodexQuotaWindows(weeklyOnly);
+  CHECK(single.weekly != nullptr);
+  CHECK(single.fiveHour == nullptr);
+
+  monitor::RateLimitSnapshot update;
+  update.sparseUpdate = true;
+  update.status = monitor::DataStatus::Live;
+  update.receivedAt = update.lastSuccessAt = std::chrono::system_clock::now();
+  fiveHour.remainingPercent = 22;
+  update.windows.push_back(fiveHour);
+  const monitor::RateLimitSnapshot merged =
+      monitor::MergeSparseRateLimitSnapshot(reversed, update);
+  const monitor::CodexQuotaWindows mergedWindows =
+      monitor::SelectCodexQuotaWindows(merged);
+  CHECK(merged.windows.size() == 2);
+  CHECK(mergedWindows.weekly && mergedWindows.weekly->remainingPercent == 64);
+  CHECK(mergedWindows.fiveHour && mergedWindows.fiveHour->remainingPercent == 22);
+  CHECK(!merged.sparseUpdate);
+}
+
+void TestProQuotaAdaptation() {
+  using namespace monitor;
+  std::string error;
+  const char* proJson = R"({"result":{"rateLimitsByLimitId":{
+    "codex":{"limitId":"codex","planType":"prolite","primary":{"usedPercent":2,"windowDurationMins":10080},"secondary":null},
+    "codex_bengalfox":{"limitId":"codex_bengalfox","limitName":"Spark","planType":"not-main","credits":{"unlimited":true},
+      "primary":{"usedPercent":0,"windowDurationMins":300},"secondary":{"usedPercent":0,"windowDurationMins":10080}}
+  }}})";
+  auto pro = ParseRateLimitMessage(proJson, &error);
+  CHECK(pro.has_value());
+  if (!pro) return;
+  CHECK(pro->status == DataStatus::Live);
+  CHECK(pro->planType == "prolite");
+  CHECK(!pro->credits.unlimited);
+  auto selected = SelectCodexQuotaWindows(*pro);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 98);
+  CHECK(selected.weekly && selected.weekly->bucketId == "codex");
+  CHECK(!selected.fiveHour && !selected.other);
+  // Bucket order and a zero main quota must never make Spark look preferable.
+  std::reverse(pro->windows.begin(), pro->windows.end());
+  selected = SelectCodexQuotaWindows(*pro);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 98);
+  CHECK(!selected.fiveHour);
+  for (auto& window : pro->windows) if (window.bucketId == "codex") window.remainingPercent = 0;
+  selected = SelectCodexQuotaWindows(*pro);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 0);
+  CHECK(!selected.fiveHour);
+
+  std::erase_if(pro->windows, [](const RateWindow& window) { return window.bucketId == "codex"; });
+  selected = SelectCodexQuotaWindows(*pro);
+  CHECK(!selected.weekly && !selected.fiveHour && !selected.other);
+  CHECK(!HasCodexQuotaUpdate(*pro));
+  auto sparkOnly = ParseRateLimitMessage(R"({"result":{"rateLimitsByLimitId":{
+    "codex_bengalfox":{"primary":{"usedPercent":0,"windowDurationMins":300},"secondary":{"usedPercent":0,"windowDurationMins":10080}}
+  }}})", &error);
+  CHECK(sparkOnly && sparkOnly->status == DataStatus::DataUnavailable);
+
+  auto plus = ParseRateLimitMessage(R"({"result":{"rateLimits":{"limitId":"codex","planType":"plus",
+    "primary":{"usedPercent":80,"windowDurationMins":300},"secondary":{"usedPercent":30,"windowDurationMins":10080}}}})", &error);
+  CHECK(plus.has_value());
+  if (!plus) return;
+  auto sparse = ParseRateLimitMessage(R"({"method":"account/rateLimits/updated","params":{"rateLimits":{
+    "limitId":"codex","primary":{"usedPercent":2,"windowDurationMins":10080},"secondary":null,"planType":"prolite"}}})", &error);
+  CHECK(sparse && sparse->updatedWindows.size() == 2);
+  if (!sparse) return;
+  auto upgraded = MergeSparseRateLimitSnapshot(*plus, *sparse);
+  selected = SelectCodexQuotaWindows(upgraded);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 98);
+  CHECK(!selected.fiveHour);
+  CHECK(upgraded.windows.size() == 1 && upgraded.updatedWindows.empty());
+  CHECK(upgraded.planType == "prolite");
+  // Omitted is not null: partial data keeps the other period.
+  auto partial = ParseRateLimitMessage(R"({"method":"account/rateLimits/updated","params":{"rateLimits":{
+    "limitId":"codex","primary":{"usedPercent":81,"windowDurationMins":300}}}})", &error);
+  CHECK(partial.has_value());
+  if (!partial) return;
+  auto merged = MergeSparseRateLimitSnapshot(*plus, *partial);
+  selected = SelectCodexQuotaWindows(merged);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 70);
+  CHECK(selected.fiveHour && selected.fiveHour->remainingPercent == 19);
+  auto removed = ParseRateLimitMessage(R"({"method":"account/rateLimits/updated","params":{"rateLimits":{
+    "limitId":"codex","primary":null}}})", &error);
+  CHECK(removed && removed->windows.empty() && HasCodexQuotaUpdate(*removed));
+  if (!removed) return;
+  merged = MergeSparseRateLimitSnapshot(*plus, *removed);
+  selected = SelectCodexQuotaWindows(merged);
+  CHECK(selected.weekly && selected.weekly->remainingPercent == 70);
+  CHECK(!selected.fiveHour);
+
+  // Authoritative empty/null main data never revives the legacy or Spark view.
+  auto emptyMulti = ParseRateLimitMessage(R"({"result":{"rateLimitsByLimitId":{},"rateLimits":{
+    "limitId":"codex","primary":{"usedPercent":0,"windowDurationMins":300}}}})", &error);
+  CHECK(emptyMulti && emptyMulti->windows.empty() && emptyMulti->status == DataStatus::DataUnavailable);
+  auto noMain = ParseRateLimitMessage(R"({"result":{"rateLimitsByLimitId":{
+    "codex":{"primary":null,"secondary":null},"codex_bengalfox":{"primary":{"usedPercent":0,"windowDurationMins":10080}}
+  }}})", &error);
+  CHECK(noMain && noMain->status == DataStatus::DataUnavailable);
+  auto invalidUsed = ParseRateLimitMessage(R"({"result":{"rateLimits":{"primary":{"usedPercent":"","windowDurationMins":10080}}}})", &error);
+  CHECK(invalidUsed && invalidUsed->windows.empty() && invalidUsed->status == DataStatus::DataUnavailable);
+  CHECK(!ParseRateLimitMessage(R"({"result":{"somethingElse":true}})", &error));
+  auto legacy = ParseRateLimitMessage(R"({"result":{"secondary":{"usedPercent":10,"windowDurationMins":10080}}})", &error);
+  CHECK(legacy && SelectCodexQuotaWindows(*legacy).weekly);
+  CHECK(legacy && !SelectCodexQuotaWindows(*legacy).fiveHour);
+  auto fiveOnly = ParseRateLimitMessage(R"({"result":{"rateLimits":{"primary":{"usedPercent":10,"windowDurationMins":300}}}})", &error);
+  CHECK(fiveOnly && !SelectCodexQuotaWindows(*fiveOnly).weekly && SelectCodexQuotaWindows(*fiveOnly).fiveHour);
+  auto unknown = ParseRateLimitMessage(R"({"result":{"rateLimits":{"primary":{"usedPercent":10,"windowDurationMins":60}}}})", &error);
+  CHECK(unknown && SelectCodexQuotaWindows(*unknown).other);
+}
+
+void TestSydneyDst() {
+  DYNAMIC_TIME_ZONE_INFORMATION zone{};
+  bool found = false;
+  for (DWORD index = 0;; ++index) {
+    const DWORD result = EnumDynamicTimeZoneInformation(index, &zone);
+    if (result == ERROR_NO_MORE_ITEMS) break;
+    if (result != ERROR_SUCCESS) continue;
+    if (_wcsicmp(zone.TimeZoneKeyName, L"AUS Eastern Standard Time") == 0) { found = true; break; }
+  }
+  CHECK(found);
+  if (!found) return;
+  SYSTEMTIME january{2026, 1, 0, 15, 0, 0, 0, 0};
+  SYSTEMTIME july{2026, 7, 0, 15, 0, 0, 0, 0};
+  SYSTEMTIME janLocal{}, julLocal{};
+  CHECK(SystemTimeToTzSpecificLocalTimeEx(&zone, &january, &janLocal));
+  CHECK(SystemTimeToTzSpecificLocalTimeEx(&zone, &july, &julLocal));
+  CHECK(janLocal.wHour == 11);
+  CHECK(julLocal.wHour == 10);
+}
+
+void TestEnergyState() {
+  monitor::EnergyIndicatorConfig config;
+  auto s100 = monitor::ComputeEnergyState(100.0, config);
+  auto s51 = monitor::ComputeEnergyState(51.0, config);
+  auto s50 = monitor::ComputeEnergyState(50.0, config);
+  auto s30 = monitor::ComputeEnergyState(30.0, config);
+  auto s10 = monitor::ComputeEnergyState(10.0, config);
+  auto s1 = monitor::ComputeEnergyState(1.0, config);
+  auto s0 = monitor::ComputeEnergyState(0.0, config);
+  auto unavailable = monitor::ComputeEnergyState(std::nullopt, config);
+  CHECK(s100.visual == monitor::EnergyVisualState::NormalBlue && s100.fullCycleMs == 0);
+  CHECK(s51.visual == monitor::EnergyVisualState::NormalBlue && s51.fullCycleMs == 0);
+  CHECK(s50.visual == monitor::EnergyVisualState::WarningRedBlink && s50.fullCycleMs == 1200);
+  CHECK(s30.fullCycleMs == 900);
+  CHECK(s10.visual == monitor::EnergyVisualState::CriticalRedFastBlink && s10.fullCycleMs == 400);
+  CHECK(s1.fullCycleMs == 250);
+  CHECK(s0.visual == monitor::EnergyVisualState::Stone && s0.fullCycleMs == 0);
+  CHECK(unavailable.visual == monitor::EnergyVisualState::DataUnavailable && unavailable.fullCycleMs == 0);
+  CHECK(s1.fullCycleMs / 2 >= 100);
+}
+
+} // namespace
+int main() {
+  TestRemainingPercent(); TestDataAge(); TestParsing(); TestResetAndStale();
+  TestQuotaWindowSelection(); TestProQuotaAdaptation(); TestSydneyDst(); TestEnergyState();
+  std::cout << checks << " checks, " << failures << " failures\n";
+  return failures ? 1 : 0;
+}

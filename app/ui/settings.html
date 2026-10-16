@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>悬浮窗设置</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="target-settings.css">
+  <link rel="stylesheet" href="i18n.css">
+</head>
+<body class="settings-page">
+  <div class="settings-shell">
+    <header class="settings-header"><div class="settings-brand"><img src="assets/app-icon.png" alt=""><div><h1>悬浮窗设置</h1><p>迪迦额度显示器</p></div></div><button class="icon-button" id="settings-close" aria-label="关闭设置"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+    <main class="settings-content">
+      <section class="settings-group">
+        <h2>浮窗显示</h2>
+        <label class="setting-row"><span><strong>Codex</strong><small>显示 ChatGPT 账号的 Codex 额度</small></span><input class="switch" id="show-codex" type="checkbox" checked></label>
+        <label class="setting-row"><span><strong>Claude Code</strong><small>显示 Claude Code 账号的订阅额度</small></span><input class="switch" id="show-claude" type="checkbox" checked></label>
+        <label class="setting-row"><span><strong>额度显示模式</strong><small>二选一，均保留五小时、总周和刷新信息</small></span><select id="quota-display"><option value="bars">光能条</option><option value="rings">光能环</option></select></label>
+        <label class="setting-row"><span><strong>浮窗大小</strong><small>拖动迪迦或空白区域移动位置</small></span><select id="floating-scale"><option value="80">80%</option><option value="100">100%</option><option value="125">125%</option><option value="150">150%</option></select></label>
+        <label class="setting-row"><span><strong>始终置顶</strong></span><input class="switch" id="always-on-top" type="checkbox" checked></label>
+        <p class="setting-hint">账号开关只控制浮窗显示，不改变下方选择的状态目标。</p>
+      </section>
+      <section class="settings-group target-settings" aria-labelledby="energy-target-title">
+        <h2 id="energy-target-title">显示目标</h2>
+        <label class="setting-row"><span><strong>迪迦状态的目标</strong><small>光能条或环始终显示各账号自身额度</small></span><select id="energy-target" aria-describedby="target-rule"><option value="codex">Codex</option><option value="claude">Claude Code</option><option value="aggregate">聚合模式</option></select></label>
+        <fieldset id="aggregate-members" class="target-members" aria-describedby="aggregate-members-hint" hidden>
+          <legend>参与聚合的账号</legend>
+          <div class="target-member-options"><label class="target-member"><input id="aggregate-codex" type="checkbox" checked><span>Codex</span></label><label class="target-member"><input id="aggregate-claude" type="checkbox" checked><span>Claude Code</span></label></div>
+          <p class="setting-hint" id="aggregate-members-hint">至少选择一个账号。要移除最后一个账号，请先选择另一个。</p>
+        </fieldset>
+        <p class="setting-hint" id="target-rule">迪迦优先按五小时额度判断，没有五小时限制时才按总周额度。聚合时各账号等权，分别计算同周期平均值；五小时数据暂缺或过期时等待同步。</p>
+        <div class="target-result" id="target-result" aria-live="polite" aria-atomic="true">
+          <div class="target-result-heading"><span id="target-result-label">Codex · 当前控制额度</span><strong id="target-summary">待同步</strong></div>
+          <ul id="target-periods" class="target-periods"></ul>
+          <p id="target-explanation" class="target-explanation">等待所选目标的有效额度。</p>
+        </div>
+        <p id="target-save-status" class="target-save-status" role="status"></p>
+      </section>
+      <section class="settings-group">
+        <div class="preview-heading"><h2>迪迦动画</h2><button class="text-button" id="follow-quota" hidden>跟随真实额度</button></div>
+        <div class="scene-options" aria-label="预览动画">
+          <button class="scene-option" data-scene="full" aria-pressed="false"><img src="assets/characters/full.png" alt=""><span>满能量</span></button>
+          <button class="scene-option" data-scene="low" aria-pressed="false"><img src="assets/characters/low.png" alt=""><span>红灯状态</span></button>
+          <button class="scene-option" data-scene="stone" aria-pressed="false"><img src="assets/characters/stone.png" alt=""><span>石化状态</span></button>
+        </div>
+        <p class="setting-hint" id="preview-note">点击后在悬浮窗中预览，账号额度保持真实显示。</p>
+        <label class="setting-row"><span><strong>迪迦红灯阈值</strong><small>各计量条独立在低于 50% 时变色，耗尽后石化</small></span><select id="threshold"><option value="10">10%</option><option value="20">20%</option><option value="30">30%</option><option value="40">40%</option></select></label>
+        <label class="setting-row"><span><strong>减少动态效果</strong><small>使用静态画面</small></span><input class="switch" id="reduce-motion" type="checkbox"></label>
+        <p class="setting-hint">迪迦跟随上方选择的显示目标。未登录、已过期或聚合数据不完整时，不判断能量。</p>
+      </section>
+      <section class="settings-group">
+        <h2>自动启动</h2>
+        <label class="setting-row"><span><strong>随 Codex 启动</strong><small>打开 Codex 时自动显示浮窗</small></span><input class="switch" id="launch-codex" type="checkbox"></label>
+        <label class="setting-row"><span><strong>随 Claude Code 启动</strong><small>打开 Claude Code 时自动显示浮窗</small></span><input class="switch" id="launch-claude" type="checkbox"></label>
+        <p class="setting-hint">两个选项可同时开启。关闭对应软件后，浮窗仍可独立运行。</p>
+      </section>
+      <section class="settings-group"><h2>账号与完整额度</h2><div id="account-settings"></div><p class="setting-hint">在官方页面登录，登录状态分别保存在本机。Claude Code 的额度同步目前为试验功能。</p></section>
+    </main>
+    <footer class="settings-footer"><span>v2.0.0 · 设置自动保存</span><button class="primary-button" id="settings-done">完成</button></footer>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

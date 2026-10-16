@@ -1,0 +1,9 @@
+{
+  "name": "tiga-claude-worker-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "node-pty": "1.1.0",
+    "@xterm/headless": "6.0.0"
+  }
+}

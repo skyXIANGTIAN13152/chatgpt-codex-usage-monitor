@@ -1,0 +1,37 @@
+/* Rings occupy each account's quota area, beside its two period readings. */
+body[data-quota-display=rings] .widget-accounts #provider-list { gap:6px; }
+.quota-ring-layout { display:flex; align-items:center; gap:10px; margin-top:3px; }
+.quota-ring-group { position:relative; flex:0 0 52px; width:52px; height:52px; }
+.quota-ring-group .quota-rings-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.quota-ring { fill:none; }
+.quota-ring .gauge-start { stop-color:var(--quota-start); }
+.quota-ring .gauge-end { stop-color:var(--quota-end); }
+.quota-ring .gauge-track { stroke:var(--quota-start); opacity:.19; }
+.quota-ring .gauge-fill { stroke-linecap:round; filter:drop-shadow(0 0 .55px color-mix(in srgb,var(--quota-end) 35%,transparent)); }
+.quota-ring[data-quota-level=stone] .gauge-track { opacity:.42; stroke-dasharray:.7 1.1; }
+.quota-ring[data-quota-level=unknown] .gauge-track { opacity:.24; }
+.widget-accounts .quota-ring-value { position:absolute; inset:0; display:flex; justify-content:center; align-items:center; gap:0; font-size:11.5px; line-height:1; pointer-events:none; }
+.widget-accounts .quota-ring-value small { margin-left:.4px; font-size:7px; }
+.widget-accounts .quota-windows.quota-ring-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; margin-top:0; }
+.widget-accounts .quota-ring-legend .quota-line { gap:5px; }
+.widget-accounts .quota-ring-legend .quota-number { font-size:15px; }
+.widget-accounts .quota-ring-legend .quota-label { overflow:visible; font-size:9px; }
+.widget-accounts .quota-ring-legend .quota-label::before { content:''; display:inline-block; width:4px; height:4px; border:1px solid var(--quota-end); border-radius:50%; margin-right:4px; vertical-align:1px; }
+.widget-accounts .quota-ring-legend [data-period=short] .quota-label::before { background:var(--quota-end); }
+
+/* Crimson alloy: a dark underside and a narrow specular seam.
+   Claude inherits its warmer amber/copper material; limestone stays untouched. */
+.provider[data-provider=codex] { --metal-light:#ffe5ed; --metal-dark:#45091f; }
+.provider[data-provider=claude] { --metal-light:#fff6d5; --metal-dark:#541b08; }
+.widget-accounts .quota-bar { position:relative; margin-top:5px; }
+.widget-accounts .quota-bar .quota-track { position:relative; margin-top:0; }
+.widget-accounts .quota-window[data-quota-level=low] .quota-fill {
+  background-image:linear-gradient(180deg,#fff2 0%,#fffa 22%,#fff1 40%,#16000622 55%,#16000688 78%,#fff4 100%),linear-gradient(90deg,var(--quota-start),var(--quota-end));
+  box-shadow:inset 0 .5px .2px var(--metal-light),inset 0 -.6px .3px var(--metal-dark),0 .6px .8px #25041466;
+}
+.widget-accounts .quota-window[data-quota-level=low] .quota-fill::after { background:linear-gradient(112deg,transparent 24%,#fff0 35%,#fff6 42%,#fffa 44%,#fff0 49%,transparent 67%); }
+.quota-ring[data-quota-level=low] .gauge-fill { filter:drop-shadow(0 .5px .35px var(--metal-dark)); }
+.gauge-metal,.gauge-bevel { pointer-events:none; stroke-linecap:round; fill:none; }
+.gauge-bevel { translate:0 -.35px; }
+.metal-reflection { stop-color:var(--metal-light); }
+.widget-accounts :is(.provider-title,.quota-line) { position:relative; z-index:1; }

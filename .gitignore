@@ -20,3 +20,15 @@
 
 # Intermediate chroma-key source
 resources/usage_monitor_icon_chroma.png
+
+# v2 application: generated dependencies, binaries and isolated test profiles
+**/node_modules/
+**/build/
+/app/runtime/
+/qa/
+/app/qa/
+**/__pycache__/
+*.dll
+*.obj
+*.pdb
+*.lib

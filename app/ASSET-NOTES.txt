@@ -1,0 +1,19 @@
+托盘图标制作记录
+模式：OpenAI 内置 imagegen；透明背景；2026-10-16。
+保存资产：ui/assets/app-icon-master.png；应用缩略图：app-icon.png；Windows图标：app-icon.ico。
+用途：应用和系统托盘图标。用户随后要求人物本体透明悬浮，角色素材的后续处理见下文。
+原始提示词：
+Create one polished raster application icon for a Windows desktop app called Tiga Energy Monitor. The icon is a small physical silver armor-mounted blue color-timer crystal, inspired by the blue energy light of Ultraman Tiga, without depicting a character or face. A luminous rich cyan oval faceted glass gem sits inside a beautifully sculpted brushed silver and cool platinum frame with a gentle V-shaped shoulder, precise restrained metal highlights. Front view, centered, nearly filling a square canvas with comfortable transparent margins, legible at 32 pixels. Premium miniature prop photograph / 3D render aesthetic, not flat vector. No text, letters, words, numbers, logo, watermark, square tile, extra objects, red gem or background. Actual transparent background; subtle blue light is confined close to the crystal. This is only the software icon, not a replacement for the user's original animated wallpapers.
+
+原壁纸制作记录见 ui/assets/scenes/manifest.json。
+
+透明人物制作记录（2026-10-16）
+模式：OpenAI 内置 imagegen 编辑，transparent_background=true。
+输入：ui/assets/scenes/full.jpg、low.jpg、stone.jpg，均为用户指定壁纸的原生录制画面。
+输出：ui/assets/characters/full.png、low.png、stone.png，保留真实透明通道。
+处理：移除背景，提取人物和局部贴身光晕。AI 提取并非逐像素无损抠像，人物形状与纹理会有一定重建。
+动画：以透明人物为主体，保留来自原壁纸视频的动态光效，输出透明 WebM。2026-10-17 移除满能量曾使用的 shake.frag 人物位移，保留灯光变化并固定 RGB 纹理与透明轮廓；红灯增强原红灯变化，石化增强原环境灰度流光。满能量 435 帧逐帧检查轮廓边界固定，无重复帧；原人物 PNG 均未修改。
+文字粉尘纹理由代码生成的 SVG 程序纹理实现，见 ui/assets/type-dust.svg；不修改原人物 PNG。
+原输入图、原 MP4 与工具原 PNG 均保留；没有用生成图假称完整原生人物动态。
+完整三条最终提示词：ui/assets/characters/imagegen-prompts.json；资产与视频合成记录：ui/assets/characters/manifest.json。
+

@@ -1,0 +1,279 @@
+{
+  "version": 3,
+  "created": "2026-10-17",
+  "author": "柊明",
+  "sourceType": "User-subscribed Wallpaper Engine scenes, rendered locally; imagegen-derived transparent character cutouts.",
+  "method": "All states keep the generated body texture and silhouette fixed. Only spatially aligned, amplified original wallpaper lighting varies around its temporal mean. Original source character pixels are not preserved.",
+  "transparent": true,
+  "codec": "VP9 WebM with alpha",
+  "fps": 30,
+  "canvas": [
+    800,
+    600
+  ],
+  "alphaMask": "Generated PNG alpha scaled to 800x600 with final 35 pixels faded to zero. All silhouettes stay fixed; at most two native alpha code values of VP9 quantization occur in the soft fade (one value at 260x195). No opaque background or arbitrary light disc.",
+  "display": "Use contain sizing. Keep original PNG posters. Chromium/Electron supports the alpha stream; FFmpeg inspection must use libvpx-vp9 decoder.",
+  "scenes": {
+    "full": {
+      "scene": "full",
+      "sourceVideo": "../scenes/full.mp4",
+      "generatedBody": "full.png",
+      "output": "full.webm",
+      "width": 800,
+      "height": 600,
+      "durationSeconds": 14.5,
+      "fps": 30,
+      "method": "Imagegen transparent body; amplified spatially aligned native light variation around a temporal mean. Body RGB texture and alpha stay in their original positions; only source-derived lighting varies.",
+      "sourceBodyAnimationPreserved": false,
+      "nativeBodyFlowEffectReapplied": false,
+      "nativeLightingAnimationPreserved": true,
+      "bodyMotionMethod": "No geometry motion; source wallpaper contributes local lighting variation only.",
+      "originalImagegenPngModified": false,
+      "alphaExtendsBeyondGeneratedPng": false,
+      "sourceEffect": null,
+      "lightTemporalContrastGain": 1.6,
+      "lightBlurSigma": 12,
+      "alphaEdge": "Bottom 35 pixels fade to complete transparency; no extra circular or rectangular backdrop.",
+      "alignment": "Source features scaled by 1.083 then translated (-33,-30) to align chest and eyes.",
+      "alphaStats": {
+        "minimum": 0,
+        "maximum": 255,
+        "transparent": 308811,
+        "opaque": 1636,
+        "soft": 169553,
+        "nontrivialBounds": [
+          74,
+          58,
+          733,
+          592
+        ],
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "bytes": 663960,
+      "lightingSourceEffects": [
+        "lightshafts",
+        "godrays"
+      ],
+      "imagegenOutput": "exec-846b5e7f-2436-4ce5-8f8c-6993d8bfbda4.png",
+      "posterSize": [
+        1448,
+        1086
+      ],
+      "posterSha256": "e2e5816b23e40a2faefc6174425c6c2e39f66ec1a9a6a4a9a281e42466e2a580",
+      "videoSha256": "c45b403739c06242d0a6f51b3494555ec22d87434bbbc75b0ad39a602a4cfe4c",
+      "validation": {
+        "imagegenPngUnchanged": true,
+        "sampledFrames": 7,
+        "motionPixels": 110098,
+        "maxAlphaDrift": 2,
+        "opaqueOver240": 146182,
+        "partialAlpha": 24969
+      },
+      "workshopId": "3778523054",
+      "title": "迪迦奥特曼【Ultraman Tiga】dy柊明",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778523054",
+      "removedBodyEffect": {
+        "shader": "full/shaders/effects/shake.frag",
+        "flowMask": "full/materials/masks/shake_mask_5b9faa24.png",
+        "sourceStrength": 0.1,
+        "sourceSpeed": 1.3,
+        "frameQuantizedSpeed": 1.2999693738992248,
+        "maximumDisplacement800": [
+          11.47,
+          6.51
+        ],
+        "maximumDisplacement260": [
+          3.73,
+          2.12
+        ],
+        "recommendedHitMaskExpansionAt260": 5
+      },
+      "stabilityValidation": {
+        "analyzedFrames": 435,
+        "analyzedCanvas": [
+          260,
+          195
+        ],
+        "bodyGeometry": "Fixed source PNG; no translation, warp or displacement filter.",
+        "alphaQuantizationTolerance": {
+          "native800": 2,
+          "displayed260": 1
+        },
+        "maximumObservedAlphaDifference": 1,
+        "maximumAlphaCentroidStep": 0.000034854662134710886,
+        "alphaCentroidRange": [
+          [
+            131.9417667549026,
+            131.94179194482288
+          ],
+          [
+            128.23736309142558,
+            128.23739082070483
+          ]
+        ],
+        "alphaBoundsRange": [
+          [
+            24,
+            24
+          ],
+          [
+            18,
+            18
+          ],
+          [
+            238,
+            238
+          ],
+          [
+            192,
+            192
+          ]
+        ],
+        "dynamicLightPixels": 8794,
+        "repeatedFrames": 0,
+        "loopBoundary": {
+          "alphaMax": 1,
+          "alphaChanged": 0,
+          "rgbChanged": 2401,
+          "meanVisibleRgbDifference": 2.3831172897488884
+        },
+        "adjacentFrameMeanRgbP95": 2.426326006637861
+      }
+    },
+    "low": {
+      "scene": "low",
+      "sourceVideo": "../scenes/low.mp4",
+      "generatedBody": "low.png",
+      "output": "low.webm",
+      "width": 800,
+      "height": 600,
+      "durationSeconds": 14,
+      "fps": 30,
+      "method": "Imagegen transparent body; amplified spatially aligned native light variation around a temporal mean. Body RGB texture and alpha stay in their original positions; only source-derived lighting varies.",
+      "sourceBodyAnimationPreserved": false,
+      "nativeLightingAnimationPreserved": true,
+      "originalImagegenPngModified": false,
+      "alphaExtendsBeyondGeneratedPng": false,
+      "sourceEffect": null,
+      "lightTemporalContrastGain": 4,
+      "lightBlurSigma": 1.4,
+      "alphaEdge": "Bottom 35 pixels fade to complete transparency; no extra circular or rectangular backdrop.",
+      "alignment": "Source and generated landmarks have median displacement 1.2 pixels; chest/eye light regions remain in place.",
+      "alphaStats": {
+        "minimum": 0,
+        "maximum": 255,
+        "transparent": 302124,
+        "opaque": 1436,
+        "soft": 176440,
+        "nontrivialBounds": [
+          0,
+          40,
+          621,
+          595
+        ],
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "bytes": 592006,
+      "nativeBodyFlowEffectReapplied": false,
+      "bodyMotionMethod": "No added geometry motion; source wallpaper uses local light animation.",
+      "lightingSourceEffects": [
+        "pulse",
+        "shine",
+        "bloom"
+      ],
+      "imagegenOutput": "exec-ce666f95-eff6-48e6-a0d8-7a56c7d2e0e5.png",
+      "posterSize": [
+        1448,
+        1086
+      ],
+      "posterSha256": "2692b99869d52d97db04b1aa147e3d3f8913468363a60239648686876d7601b7",
+      "videoSha256": "b9d3c6a0e9d79abbdee05e6911a0aafa2cea92bd3cf240b8176a7ac4689d5270",
+      "validation": {
+        "imagegenPngUnchanged": true,
+        "sampledFrames": 7,
+        "motionPixels": 37519,
+        "maxAlphaDrift": 0,
+        "opaqueOver240": 155598,
+        "partialAlpha": 22248
+      },
+      "workshopId": "3778488689",
+      "title": "迪迦奥特曼 空中型 创造亚当【Ultraman Tiga Sky Type】dy柊明",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778488689"
+    },
+    "stone": {
+      "scene": "stone",
+      "sourceVideo": "../scenes/stone.mp4",
+      "generatedBody": "stone.png",
+      "output": "stone.webm",
+      "width": 800,
+      "height": 600,
+      "durationSeconds": 14,
+      "fps": 30,
+      "method": "Imagegen transparent body; amplified spatially aligned native light variation around a temporal mean. Body RGB texture and alpha stay in their original positions; only source-derived lighting varies.",
+      "sourceBodyAnimationPreserved": false,
+      "nativeLightingAnimationPreserved": true,
+      "originalImagegenPngModified": false,
+      "alphaExtendsBeyondGeneratedPng": false,
+      "sourceEffect": null,
+      "lightTemporalContrastGain": 3.2,
+      "lightBlurSigma": 3,
+      "alphaEdge": "Bottom 35 pixels fade to complete transparency; no extra circular or rectangular backdrop.",
+      "alignment": "Source features scaled by 1.228 and rotated -1.045 degrees, retaining subtle native ambient-light variation on stone.",
+      "alphaStats": {
+        "minimum": 0,
+        "maximum": 255,
+        "transparent": 279952,
+        "opaque": 792,
+        "soft": 199256,
+        "nontrivialBounds": [
+          48,
+          41,
+          787,
+          588
+        ],
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "bytes": 1380193,
+      "nativeBodyFlowEffectReapplied": false,
+      "bodyMotionMethod": "No added geometry motion; source wallpaper uses local light animation.",
+      "lightingSourceEffects": [
+        "lightshafts",
+        "shine",
+        "filmgrain"
+      ],
+      "imagegenOutput": "exec-409b7df4-ebb4-4618-a2d7-67e4a273968d.png",
+      "posterSize": [
+        1448,
+        1086
+      ],
+      "posterSha256": "d34d6df5f115b9aaff95bb934d9ee49e45deece4cddfb379b51f31914e260a01",
+      "videoSha256": "ad83f03efb1b80248e9ab57d2c543df04bfe74403d487367dd5a85609ad46349",
+      "validation": {
+        "imagegenPngUnchanged": true,
+        "sampledFrames": 7,
+        "motionPixels": 90031,
+        "maxAlphaDrift": 0,
+        "opaqueOver240": 173370,
+        "partialAlpha": 26471
+      },
+      "workshopId": "3778530158",
+      "title": "迪迦奥特曼 石像 音频响应发光效果【Ultraman Tiga】dy柊明",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778530158"
+    }
+  }
+}

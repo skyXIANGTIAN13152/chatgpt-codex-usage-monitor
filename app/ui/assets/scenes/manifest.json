@@ -1,0 +1,109 @@
+{
+  "author": "柊明",
+  "sourceType": "Local subscribed Wallpaper Engine scene.pkg, rendered with the original Wallpaper Engine renderer",
+  "captureMethod": "Windows Graphics Capture of an isolated native preview window; no desktop recording",
+  "sourceRootRelativeToSteamLibrary": "steamapps/workshop/content/431960",
+  "transform": "Horizontal background crop only; entire source image height retained; aspect ratio preserved; a maximum of 4 pixels vertical padding; one second native-frame crossfade closes the loop.",
+  "loopConstruction": "15 second native capture, last second dissolved into first, output duration 14 seconds",
+  "audio": false,
+  "runtimeRequirements": "Any H.264 MP4 video player. Wallpaper Engine and Steam are not required to replay these rendered clips.",
+  "displayRequirement": "Use 4:3 container and object-fit: contain. Do not apply another cover crop.",
+  "captureDate": "2026-10-16",
+  "scenes": {
+    "full": {
+      "workshopId": "3778523054",
+      "title": "迪迦奥特曼【Ultraman Tiga】dy柊明",
+      "sourceImageSize": [
+        3840,
+        2176
+      ],
+      "captureSize": [
+        960,
+        544
+      ],
+      "crop": [
+        116,
+        0,
+        728,
+        544
+      ],
+      "properties": {
+        "timedate": false
+      },
+      "video": "full.mp4",
+      "poster": "full.jpg",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778523054",
+      "durationSeconds": 14,
+      "fps": 30,
+      "outputSize": [
+        800,
+        600
+      ],
+      "videoSha256": "1c1a0e38d4d974111c15c901f3fc6d2779dd8aac2fbf41b9a4f3ad1c5f266f35"
+    },
+    "low": {
+      "workshopId": "3778488689",
+      "title": "迪迦奥特曼 空中型 创造亚当【Ultraman Tiga Sky Type】dy柊明",
+      "sourceImageSize": [
+        3840,
+        2112
+      ],
+      "captureSize": [
+        960,
+        528
+      ],
+      "crop": [
+        0,
+        0,
+        704,
+        528
+      ],
+      "properties": {
+        "time": false,
+        "newproperty": 0
+      },
+      "video": "low.mp4",
+      "poster": "low.jpg",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778488689",
+      "durationSeconds": 14,
+      "fps": 30,
+      "outputSize": [
+        800,
+        600
+      ],
+      "videoSha256": "fc5b0f4553217b98aff8757df40d152d7b0f189dbc8961afbedede2e9ce5cab9"
+    },
+    "stone": {
+      "workshopId": "3778530158",
+      "title": "迪迦奥特曼 石像 音频响应发光效果【Ultraman Tiga】dy柊明",
+      "sourceImageSize": [
+        3456,
+        1952
+      ],
+      "captureSize": [
+        864,
+        488
+      ],
+      "crop": [
+        100,
+        0,
+        660,
+        488
+      ],
+      "properties": {
+        "newproperty": 0,
+        "audiolighteffect": false
+      },
+      "video": "stone.mp4",
+      "poster": "stone.jpg",
+      "workshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3778530158",
+      "durationSeconds": 14,
+      "fps": 30,
+      "outputSize": [
+        800,
+        600
+      ],
+      "videoSha256": "1e80351663b279921f109b9711720df807f88e6937a8fbb1484ecc477b901ef7"
+    }
+  }
+}
