@@ -1,4 +1,14 @@
-Tiga Energy Monitor v2.0.0 — English Edition
+Tiga Energy Monitor v2.0.1 — English Edition
+
+THIS UPDATE
+Fixes a five-minute refresh interval being cut short by a fixed three-minute
+data lifetime. Unrelated settings no longer postpone polling. Quota resets and
+computer wake trigger synchronization; failed reads retry after at least
+30 seconds, with overlapping refresh requests combined into one operation.
+Each visible period now has a persistent reset countdown in both bars and rings.
+Pause still affects only animation, and hiding accounts keeps the layout compact.
+Shutdown no longer lets unfinished startup or refresh work restart background
+activity. The Chinese and English editions include the same fixes.
 
 START
 Extract the entire portable ZIP, then run TigaEnergyMonitor.exe.
@@ -22,8 +32,10 @@ Claude usage reading is experimental. It parses the official Claude Code
 /usage screen. First-run setup, account permissions or upstream UI changes
 may prevent a reading. Follow the official setup link when requested, or use
 the official usage page. Missing readings are not replaced with sample data.
-Real-account authorization and subsequent live readings have not been
-end-to-end verified for this release. No real login was performed in tests.
+Existing authorized Codex readings on the local machine have recovered and
+were visually confirmed. Multi-scenario automated regressions use isolated
+fixture providers, rather than live accounts. End-to-end official Claude Code
+authorization followed by actual usage reading has not been completed.
 
 DISPLAY AND ENERGY
 Choose either Energy bars or Energy rings. The two modes are mutually exclusive.
@@ -50,7 +62,16 @@ Three transparent scenes retain animated lighting with a fixed character
 silhouette. Scene changes crossfade over 1.8 seconds. Pause stops only the
 visuals; quota updates continue. Reduced motion switches to static scenes.
 Pressing Play can override the system or application static preference.
-Hover a quota for reset time and freshness. Full account details are in settings.
+Each period shows its own live reset countdown beside its bar or ring, even when
+animation is paused. Unknown reset times and elapsed deadlines are labeled;
+the app waits for official data instead of guessing a renewed allowance.
+Hover a quota for its full reset date and freshness. Full details are in settings.
+Quotas refresh automatically at the selected interval. Display and pause changes
+do not postpone updates. Resets and waking the computer trigger a new sync;
+failed reads retry after at least 30 seconds. Manual, timed and wake refreshes
+do not overlap. Cached readings remain usable for the
+longer of three minutes or the refresh interval plus two minutes, but never
+beyond their reset deadline. Missing or expired readings are not guessed.
 Widget scale options are 80%, 100%, 125% and 150%.
 
 STARTUP AND DATA
@@ -61,6 +82,8 @@ Closing Codex or Claude Code leaves the monitor running independently.
 
 Settings and isolated account profiles: %LOCALAPPDATA%\TigaEnergyMonitorV2
 Upgrading portable program files preserves this separate data directory.
+Exit the app completely from its tray before replacing the full program folder.
+Keep your own v2 profile; do not copy another person's profile directory.
 The Chinese and English editions use the same application profile; run one
 edition at a time. Only three safe display/refresh preferences migrate from v1.
 The application is unsigned. No administrator account is required.
@@ -69,7 +92,15 @@ SOURCE, LICENSES AND MEDIA
 Source and release notes:
 https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor
 English release:
-https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.0-en
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1-en
+English portable package:
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-en-windows-x64-portable.zip
+Shared bilingual source:
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-source.zip
+Checksums for both language packages:
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-SHA256SUMS.txt
+The demo remains the v2.0.0 sample-account recording; it is not a new v2.0.1 video:
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4
 
 Project code continues under MIT. Third-party programs and wallpaper-derived
 media retain their own terms; they are not relicensed by the project's MIT file.

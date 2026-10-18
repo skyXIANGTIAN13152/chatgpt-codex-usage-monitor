@@ -4,12 +4,13 @@ const { APP_LOCALE, t, localizedError } = require('./backend/i18n.cjs');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, shell, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, shell, screen, session, powerMonitor } = require('electron');
 const { SettingsStore } = require('./backend/settings-store.cjs');
 const { CodexProvider } = require('./backend/codex-provider.cjs');
 const { ClaudeClient } = require('./backend/claude-client.cjs');
 const { CoreBridge } = require('./backend/core-bridge.cjs');
 const { selectEnergyTarget } = require('./backend/energy-selection.cjs');
+const { RefreshScheduler } = require('./backend/refresh-scheduler.cjs');
 const { WidgetPosition } = require('./backend/widget-position.cjs');
 const { WIDGET_MIN_WIDTH, WIDGET_MIN_HEIGHT, widgetDimensions, validateShapeRects,
   scaleShapeRects } = require('./backend/window-shape.cjs');
@@ -44,7 +45,8 @@ let mainWindow = null;
 let settingsWindow = null;
 let tray = null;
 let quitting = false;
-let refreshTimer = null;
+let refreshScheduler = null;
+let refreshOperation = null;
 let expiryTimer = null;
 let positionTimer = null;
 let previewScene = null;
@@ -105,6 +107,7 @@ function synchronizeEnergyTarget() {
 }
 
 function updateEnergy() {
+  if (quitting) return Promise.resolve();
   // Publish providers, settings and their newly computed target together. The
   // native result is allowed to lag, but must never describe an older target.
   sendSnapshot();
@@ -140,24 +143,40 @@ function updateEnergy() {
 function providerUpdate(id, state) {
   if (!state || state.id !== id) return;
   states[id] = state;
+  refreshScheduler?.update();
   updateEnergy().catch(() => {});
 }
 
-async function refreshAll() {
-  if (!noProviders) {
-    await Promise.allSettled(Object.values(providers).map(provider => provider.refresh()));
-  }
-  await updateEnergy();
-  return getSnapshot();
+function performRefreshAll() {
+  if (quitting) return Promise.resolve();
+  if (refreshOperation) return refreshOperation;
+  refreshOperation = (async () => {
+    const results = noProviders ? [] : await Promise.allSettled(
+      Object.values(providers).map(provider => provider.refresh()));
+    await updateEnergy();
+    // Providers normally publish their own safe error state. Unexpected rejected
+    // operations still need scheduler backoff, without forwarding raw diagnostics.
+    if (results.some(result => result.status === 'rejected')) throw new Error(t('操作未能完成，请重试。'));
+    return getSnapshot();
+  })().finally(() => { refreshOperation = null; });
+  return refreshOperation;
+}
+
+function refreshAll() {
+  return refreshScheduler ? refreshScheduler.refreshNow() : performRefreshAll();
 }
 
 function scheduleRefresh() {
-  clearInterval(refreshTimer);
-  refreshTimer = null;
-  if (!noProviders) {
-    refreshTimer = setInterval(() => { refreshAll().catch(() => {}); }, settings.refreshSeconds * 1000);
-    refreshTimer.unref();
-  }
+  if (noProviders || quitting) return;
+  if (!refreshScheduler) {
+    refreshScheduler = new RefreshScheduler({ refresh: performRefreshAll,
+      getSettings: () => settings, getStates: () => states });
+    refreshScheduler.start();
+  } else refreshScheduler.update();
+}
+
+function resumeRefresh() {
+  if (refreshScheduler) refreshScheduler.resume().catch(() => {});
 }
 
 function constrainBounds(bounds) {
@@ -210,7 +229,7 @@ async function persistSettingsPatch(patch) {
   }
   settings = nextSettings;
   applyWindowSettings(previous);
-  scheduleRefresh();
+  refreshScheduler?.update();
   await updateEnergy();
   return getSnapshot();
 }
@@ -438,6 +457,7 @@ async function initializeProviders() {
     executable: path.join(APP_DIRECTORY, 'native', 'claude', 'claude.exe'), dataDir: dataDirectory,
     openExternal, onUpdate: state => providerUpdate('claude', state) });
   await Promise.allSettled(Object.values(providers).map(item => item.start()));
+  if (quitting) return;
   scheduleRefresh();
 }
 
@@ -452,7 +472,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { if (quitting) app.quit(); });
   app.on('before-quit', () => {
     quitting = true;
-    clearInterval(refreshTimer);
+    refreshScheduler?.stop();
+    powerMonitor.removeListener('resume', resumeRefresh);
     clearInterval(expiryTimer);
     clearTimeout(positionTimer);
     saveWidgetPosition();
@@ -473,6 +494,7 @@ if (!app.requestSingleInstanceLock()) {
     updateTray();
     settingsQueue = settingsQueue.then(() => configureWatcher()).catch(() => {});
     initializeProviders().catch(() => {});
+    powerMonitor.on('resume', resumeRefresh);
     expiryTimer = setInterval(() => { updateEnergy().catch(() => {}); }, 5000);
     expiryTimer.unref();
   }).catch(() => app.quit());

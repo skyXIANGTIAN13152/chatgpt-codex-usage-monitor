@@ -8,3 +8,9 @@
 .widget-info .widget-status { position:static; order:1; width:max-content; max-width:100%; min-height:14px; }
 .widget-info .widget-status > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .widget-info #preview-badge { position:absolute; left:0; top:-17px; max-width:100%; line-height:12px; overflow:hidden; text-overflow:ellipsis; }
+
+/* Every period keeps its own visible reset countdown, even without hovering. */
+.widget-accounts .quota-reset { margin-top:1px; color:var(--widget-muted); font-size:9px; font-weight:600; line-height:10px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.widget-accounts .quota-windows.quota-ring-legend { gap:2px; }
+.widget-accounts .quota-ring-legend .quota-line { line-height:15px; }
+.widget-accounts .quota-ring-legend .quota-reset { margin-top:0; }

@@ -1,30 +1,35 @@
-# Tiga Energy Monitor 2.0.0
+# Tiga Energy Monitor 2.0.1
 
-[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.0.en.md)
+[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.1.en.md)
 
 An independent, transparent Windows desktop widget for Codex allowance from a ChatGPT account and Claude Code subscription usage. The character and account information sit directly on the desktop, with click-through empty space. Codex, ChatGPT, Steam and Wallpaper Engine do not need to stay open.
 
-**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0-en/TigaEnergyMonitor-v2.0.0-en-windows-x64-portable.zip)** · **[Watch the complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4)** · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.0-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.0)
+**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-en-windows-x64-portable.zip)** · [Bilingual source](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-source.zip) · [SHA-256 checksums](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-SHA256SUMS.txt) · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1)
 
-The English edition has its own `v2.0.0-en` release with an English application interface. The Chinese edition uses `v2.0.0`. The approximately 1-minute-45-second demo uses the Chinese interface, records actual application windows, and labels all readings as sample data.
+The English edition uses `v2.0.1-en`; the Chinese edition uses `v2.0.1`. Both releases include the same bilingual source archive and checksum table covering both portable packages.
+
+The [complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4) remains the approximately 1-minute-45-second v2.0.0 recording. It uses the Chinese interface, records actual application windows, and labels all readings as sample data. It is not a new v2.0.1 recording.
+
+v2.0.1 fixes five-minute polling being interrupted by a fixed three-minute data lifetime, restores visible reset countdowns for each period, and improves automatic synchronization, retries and shutdown. See the [release notes](docs/release-notes-v2.0.1.en.md).
 
 ## Getting started
 
-1. Extract the entire `TigaEnergyMonitor-v2.0.0-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
+1. Extract the entire `TigaEnergyMonitor-v2.0.1-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
 2. Select the ChatGPT or Claude Code login link. The bundled official component starts its authorization flow, using a separate account directory.
 3. Open Settings to choose visible accounts and either bars or rings. You can show one account, both or neither. The account that controls the character is selected separately.
 4. Drag the character to move the widget. The always-visible toolbar provides refresh, pause, pin, settings and hide-to-tray. Use the tray menu to exit completely.
 
-**Validation boundary:** standalone launch, signed-out official components, settings persistence, actual windows, animation and calculations with test data have been tested. This release has **not** completed end-to-end verification of quota readings after a real user authorization. Claude Code usage reading is experimental: first-run setup, account permissions or upstream UI changes may leave it waiting for synchronization. Missing readings are never replaced with demo values.
+**Validation boundary:** existing authorized Codex readings on the local machine have recovered and were visually confirmed. Multi-scenario automatic-refresh, countdown, settings and quota regressions use isolated fixtures, rather than live accounts. End-to-end official Claude Code authorization followed by actual usage reading has not been completed; that integration remains experimental. Missing readings are never replaced with demo values.
 
 ## Features
 
 - Independent Codex and Claude Code login, refresh and logout. Account visibility is separate from the character's target and aggregate membership.
-- Choose bars or rings, with bars as the default. Each account has one concentric ring group: weekly outside, five-hour inside. A single available period uses one ring. The center prefers the five-hour percentage; both period values and reset/refresh details remain available.
+- Choose bars or rings, with bars as the default. Each account has one concentric ring group: weekly outside, five-hour inside. A single available period uses one ring. The center prefers the five-hour percentage. Each visible period has a persistent reset countdown; hover for the full date and freshness details.
 - Independent period colors: Codex uses blue/cyan, changing below 50% toward rose/red; Claude uses white/gold, changing below 50% toward dark yellow/orange-red. A real 0% uses a stone texture. Previews and aggregate selection do not recolor unrelated periods.
 - Three transparent character states: full energy, warning and stone. Body texture and silhouette remain fixed; local moving light is derived from the original wallpapers. Transitions use a 1.8-second crossfade by default. Previewing a state never changes account data.
 - A compact 420×246 logical-pixel widget with 80%, 100%, 125% and 150% scales, saved position, and a separate settings window. Hiding an account moves the remaining information and toolbar upward.
 - Pause stops animation while quota refresh continues. Reduced-motion mode uses still images and disables transitions.
+- Automatic synchronization at the selected interval, quota reset and computer wake. Unrelated settings do not postpone polling. Failed reads retry after at least 30 seconds; overlapping requests are combined, and unfinished work cannot restart background activity after exit.
 - Optional launch watching for Codex and/or Claude Code, disabled by default. When enabled, a local watcher starts at Windows sign-in and opens the monitor when the selected application launches. Closing that application does not close the monitor. Turning both switches off removes the watcher's startup entry.
 
 ## How the character state is calculated
@@ -40,7 +45,7 @@ Aggregation gives each selected account equal weight and averages each period se
 
 The example uses **50%** to control the character. A valid controlling period can be used even if another period is incomplete. If any selected account lacks valid data for the controlling period, the result stays pending; missing accounts are not silently excluded.
 
-The default warning threshold is 20% or less; a real 0% produces the stone state. Signed-out, unavailable, older-than-three-minute or reset-expired data is not guessed to be 0% or 100%. Model-specific limits remain in the detailed account view and are not treated as overall weekly allowance. An average across providers is a comparison of percentages, not a transferable shared allowance pool, token count, context-window statistic or API bill.
+The default warning threshold is 20% or less; a real 0% produces the stone state. Signed-out, unavailable, stale or reset-expired data is not guessed to be 0% or 100%. Readings remain valid for the longer of three minutes or the refresh interval plus two minutes: five-minute polling permits seven minutes, while default one-minute polling retains the three-minute minimum. The actual reset deadline still invalidates a reading immediately and triggers synchronization. Failed reads retry after at least 30 seconds. Pause and display changes do not postpone polling. Model-specific limits remain in the detailed account view and are not treated as overall weekly allowance. An average across providers is a comparison of percentages, not a transferable shared allowance pool, token count, context-window statistic or API bill.
 
 ## Authentication, data and limitations
 
@@ -48,7 +53,9 @@ Codex uses the bundled official CLI App Server for login and usage requests. Cla
 
 Settings and independent account data live under `%LOCALAPPDATA%\TigaEnergyMonitorV2`. Only the old refresh interval, warning threshold and always-on-top preference are migrated; old credentials are not copied. The official components manage their own separate authorization data. See the [integration notes](app/integration-notes.txt).
 
-The application is unsigned. Real authorized quota reading still needs end-to-end verification, and Claude's experimental parser may need updates when the official interface changes. Only recognizable, returned usage windows are shown; subscription plans need not expose identical periods.
+To upgrade from v2, exit completely through the tray, extract and replace the full program files, and keep your own profile directory above. Existing settings and official authorization data remain available. Both language editions share that directory; run one edition at a time. Release packages contain no user profiles. Do not copy another person's profile directory.
+
+The application is unsigned. Claude's experimental parser may need updates when the official interface changes; end-to-end official authorization and actual usage reading remain unverified. Only recognizable, returned usage windows are shown; subscription plans need not expose identical periods.
 
 ## Source and build
 
@@ -79,7 +86,7 @@ node tests/ui-e2e.cjs
 node scripts/package.cjs ../../outputs/portable --locale=en
 ```
 
-The native scripts rebuild the project's helpers in `runtime/` and run their C++ checks. GUI tests use isolated data and do not require real login. Packaging writes a complete English portable directory to `outputs/portable/` alongside the repository; distribute that directory as a whole. Omit `--locale=en` to build the Chinese edition. Both editions use the same source and independent application profile.
+The native scripts rebuild the project's helpers in `runtime/` and run their C++ checks. GUI tests use isolated data and do not require real login. Packaging writes a complete English portable directory to `outputs/portable/` alongside the repository; distribute that directory as a whole. Omit `--locale=en` to build the Chinese edition. Both editions use the same source and the same per-user v2 profile.
 
 Archived documentation: [v1 Chinese](docs/README-v1.zh-CN.md) · [v1 English](docs/README-v1.en.md).
 

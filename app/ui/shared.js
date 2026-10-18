@@ -24,14 +24,14 @@ export function refreshAge(value,now=Date.now()) {
   if(seconds<86400) return t('{count}小时前刷新',{count:Math.floor(seconds/3600)});
   return t('{count}天前刷新',{count:Math.floor(seconds/86400)});
 }
-export function resetDescription(item) {
+export function resetDescription(item,compact=false) {
   const reset=timestamp(item.resetsAt);
-  if(!reset) return t(item.resetLabel || '重置时间暂未提供');
+  if(!reset||!Number.isFinite(reset)) return t(compact?'重置时间未知':item.resetLabel || '重置时间暂未提供');
   const diff=reset-Date.now();
-  if(diff<=0) return t('重置时间已到，等待重新同步');
+  if(diff<=0) return t(compact?'重置待同步':'重置时间已到，等待重新同步');
   const minutes=Math.ceil(diff/60000);
-  const duration=minutes>=1440?t('{days} 天 {hours} 小时',{days:Math.floor(minutes/1440),hours:Math.floor(minutes%1440/60)}):minutes>=60?t('{hours} 小时 {minutes} 分钟',{hours:Math.floor(minutes/60),minutes:minutes%60}):t('{minutes} 分钟',{minutes});
-  return t('{duration}后重置',{duration});
+  const duration=minutes>=1440?t(compact?'{days}天{hours}小时':'{days} 天 {hours} 小时',{days:Math.floor(minutes/1440),hours:Math.floor(minutes%1440/60)}):minutes>=60?t(compact?'{hours}小时{minutes}分':'{hours} 小时 {minutes} 分钟',{hours:Math.floor(minutes/60),minutes:minutes%60}):t(compact?'{minutes}分':'{minutes} 分钟',{minutes});
+  return t(compact?'重置 {duration}':'{duration}后重置',{duration});
 }
 // Meter colors follow their own quota; the configurable threshold only controls Tiga.
 export function quotaLevel(value) {
@@ -44,13 +44,19 @@ function shortLabel(item) {
   if(item.windowMinutes===10080 || /周|week/i.test(item.label+' '+item.id)) return '总周';
   return item.label || '额度';
 }
+function quotaMaxAgeMs(settings) {
+  const value=settings?.refreshSeconds;
+  const interval=Number.isInteger(value)&&value>=30&&value<=3600?value:60;
+  // Match the host's polling interval and retry grace, never a reset deadline.
+  return Math.max(180000,interval*1000+120000);
+}
 export function providerMarkup(provider,settings,compact=false) {
   const id=provider.id, name=id==='codex'?'Codex':'Claude Code';
   const loginLabel=t(id==='codex'?'使用 ChatGPT 账号登录':'使用 Claude Code 账号登录');
   const busy=['connecting','awaiting_login'].includes(provider.status);
   const raw=(provider.windows||[]).filter(item=>item&&typeof item==='object');
   const valid=raw.filter(item=>quotaLevel(item.remainingPercent)!=='unknown');
-  const updated=timestamp(provider.updatedAt), stale=!updated || updated>Date.now() || Date.now()-updated>180000;
+  const updated=timestamp(provider.updatedAt), stale=!updated || updated>Date.now() || Date.now()-updated>quotaMaxAgeMs(settings);
   const hasQuota=['connected','connecting','error'].includes(provider.status)&&valid.length>0;
   const waiting=provider.status==='quota_pending'||(provider.status==='connected'&&!hasQuota);
   const weekly=raw.find(item=>shortLabel(item)==='总周');
@@ -84,7 +90,7 @@ export function providerMarkup(provider,settings,compact=false) {
       const {remaining,uncertain,level,label,reset,display,hint,period,item}=entry;
       const meter=`<div class="quota-track" role="meter" aria-label="${escapeHtml(t('{label}剩余',{label:t(item.label||'额度')}))}" aria-valuemin="0" aria-valuemax="100"${uncertain?'':` aria-valuenow="${remaining}"`}><div class="quota-fill" style="width:${uncertain?0:remaining}%"></div></div>`;
       const track=rings?'':compact?`<div class="quota-bar">${meter}</div>`:meter;
-      return `<div class="quota-window ${level}" data-quota-level="${level}" data-period="${period}" title="${escapeHtml(hint)}"><div class="quota-line"><span class="quota-label">${escapeHtml(label)}</span><span class="quota-number">${uncertain?'—':display}<small>${uncertain?t('待同步'):'%'}</small></span></div>${track}${compact?'':`<p class="quota-reset">${escapeHtml(reset)}</p>`}</div>`;
+      return `<div class="quota-window ${level}" data-quota-level="${level}" data-period="${period}" title="${escapeHtml(hint)}"><div class="quota-line"><span class="quota-label">${escapeHtml(label)}</span><span class="quota-number">${uncertain?'—':display}<small>${uncertain?t('待同步'):'%'}</small></span></div>${track}<p class="quota-reset">${escapeHtml(compact?resetDescription(item,true):reset)}</p></div>`;
     }).join('')+'</div>';
     if(rings) {
       const control=entries.find(entry=>entry.period==='short')||entries.find(entry=>entry.period==='weekly')||entries[0];

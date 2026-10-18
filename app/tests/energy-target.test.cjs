@@ -135,6 +135,95 @@ test('connecting and error caches remain valid up to exactly 180 seconds', () =>
   assert.equal(result.remainingPercent,60);
 });
 
+// Freshness follows the user's polling interval, with a two-minute grace
+// period and the existing three-minute minimum. Fixed contract examples keep
+// these checks independent of any production freshness helper.
+for (const [age, ready] of [[240000,true],[300000,true],[420000,true],[420001,false]]) {
+  test(`300-second polling keeps single and aggregate quota ${ready?'valid':'expired'} at age ${age}ms`, () => {
+    const updatedAt=new Date(NOW-age).toISOString();
+    const providers={codex:account([windowQuota(20),windowQuota(40,10080)],{updatedAt}),
+      claude:account([windowQuota(80),windowQuota(80,10080)],{updatedAt})};
+    for(const [mode, members, remaining] of [['codex',['codex'],20],['claude',['claude'],80],
+      ['aggregate',['codex','claude'],50],['aggregate',['claude'],80]]) {
+      const settings={...DEFAULT_SETTINGS,refreshSeconds:300,energyTarget:mode,aggregateMembers:members};
+      const result=selected(providers,settings);
+      const message=`${mode}/${members.join('+')} at ${age}ms`;
+      assert.equal(result.status,ready?'ready':'incomplete',message);
+      assert.equal(result.remainingPercent,ready?remaining:null,message);
+      assert.equal(result.controllingPeriod,'short',message);
+      assert.equal(selectFreshRemaining(providers,settings,NOW),ready?remaining:null,message);
+      assert.deepEqual(result.missingIds,ready?[]:members,message);
+      if(mode==='aggregate'&&members.length===2) {
+        assert.deepEqual(result.windows.map(window=>[window.id,window.remainingPercent,window.memberCount]),
+          ready?[['short',50,2],['weekly',60,2]]:[['short',null,0],['weekly',null,0]],message);
+      }
+    }
+  });
+}
+
+test('legal polling intervals keep an inclusive freshness boundary and default sixty seconds stays at three minutes', () => {
+  for(const [refreshSeconds,maximumAge] of [[30,180000],[60,180000],[61,181000],[120,240000],[3600,3720000]]) {
+    assert.deepEqual(validatePatch({refreshSeconds}),{refreshSeconds});
+    const settings={...DEFAULT_SETTINGS,refreshSeconds};
+    for(const [age,expected] of [[maximumAge,35],[maximumAge+1,null]]) {
+      const providers={codex:account([windowQuota(35)],{updatedAt:new Date(NOW-age).toISOString()})};
+      assert.equal(selected(providers,settings).remainingPercent,expected,`refresh=${refreshSeconds}, age=${age}`);
+    }
+  }
+  for(const [age,expected] of [[180000,35],[180001,null]]) {
+    const providers={codex:account([windowQuota(35)],{updatedAt:new Date(NOW-age).toISOString()})};
+    assert.equal(selected(providers,{energyTarget:'codex'}).remainingPercent,expected,`omitted refreshSeconds at ${age}ms`);
+  }
+});
+
+test('invalid polling intervals fall back to sixty seconds instead of extending cached target data', () => {
+  for(const refreshSeconds of [undefined,null,false,'300',NaN,Infinity,-Infinity,0,29,3601,300.5,{},[]]) {
+    const settings={...DEFAULT_SETTINGS,refreshSeconds};
+    for(const [age,expected] of [[180000,35],[180001,null],[240000,null]]) {
+      const providers={codex:account([windowQuota(35)],{updatedAt:new Date(NOW-age).toISOString()})};
+      assert.equal(selected(providers,settings).remainingPercent,expected,
+        `invalid refresh=${String(refreshSeconds)}, age=${age}`);
+    }
+  }
+});
+
+test('extended freshness preserves genuine zero and usable connecting/error caches without using signed-out data', () => {
+  const updatedAt=new Date(NOW-420000).toISOString();
+  for(const status of ['connected','connecting','error']) {
+    const providers={codex:account([windowQuota(0)],{updatedAt,status})};
+    const result=selected(providers,{...DEFAULT_SETTINGS,refreshSeconds:300});
+    assert.equal(result.status,'ready',status);
+    assert.equal(result.remainingPercent,0,status);
+  }
+  for(const status of ['signed_out','awaiting_login','quota_pending']) {
+    const providers={codex:account([windowQuota(100)],{status}),claude:account([windowQuota(80)])};
+    for(const settings of [{...DEFAULT_SETTINGS,refreshSeconds:3600},{...aggregate,refreshSeconds:3600}]) {
+      const result=selected(providers,settings);
+      assert.equal(result.status,'incomplete',status);
+      assert.equal(result.remainingPercent,null,status);
+      assert.deepEqual(result.missingIds,['codex'],status);
+    }
+  }
+});
+
+test('an elapsed controlling reset invalidates single and aggregate readings immediately inside the longer polling allowance', () => {
+  const updatedAt=new Date(NOW-240000).toISOString();
+  for(const offset of [0,-1]) {
+    const providers={codex:account([windowQuota(20),windowQuota(40,10080)],{updatedAt}),
+      claude:account([windowQuota(80,300,{resetsAt:new Date(NOW+offset).toISOString()}),windowQuota(80,10080)],{updatedAt})};
+    const single=selected(providers,{...DEFAULT_SETTINGS,refreshSeconds:300,energyTarget:'claude'});
+    assert.equal(single.remainingPercent,null);
+    assert.equal(single.controllingPeriod,'short');
+    assert.deepEqual(single.windows.map(window=>window.remainingPercent),[null,80]);
+    const combined=selected(providers,{...aggregate,refreshSeconds:300});
+    assert.equal(combined.remainingPercent,null);
+    assert.equal(combined.status,'incomplete');
+    assert.deepEqual(combined.missingIds,['claude']);
+    assert.deepEqual(combined.windows.map(window=>[window.id,window.remainingPercent,window.memberCount]),
+      [['short',null,1],['weekly',60,2]]);
+  }
+});
+
 test('invalid or elapsed weekly readings stay unknown without blocking complete five-hour data', () => {
   for(const invalid of [windowQuota(0,10080,{resetsAt:new Date(NOW).toISOString()}),
     windowQuota(100,10080,{resetsAt:'invalid'}),windowQuota(101,10080),

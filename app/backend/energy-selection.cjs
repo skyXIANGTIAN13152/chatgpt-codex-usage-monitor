@@ -24,13 +24,21 @@ function validWindow(window, now) {
   return true;
 }
 
-function providerQuota(provider, now) {
+function quotaMaxAgeMs(settings) {
+  const value = settings?.refreshSeconds;
+  const interval = Number.isInteger(value) && value >= 30 && value <= 3600 ? value : 60;
+  // Keep readings through the next scheduled refresh plus time for retries.
+  // The renderer applies the same policy; reset deadlines are still immediate.
+  return Math.max(180000, interval * 1000 + 120000);
+}
+
+function providerQuota(provider, now, maxAgeMs) {
   const rawWindows = Array.isArray(provider?.windows) ? provider.windows : [];
   const accountWindows = rawWindows.filter(window => window && typeof window === 'object'
     && !Array.isArray(window) && !modelSpecific(window));
   const timestamp = Date.parse(provider?.updatedAt);
   const age = now - timestamp;
-  const fresh = USABLE_STATUSES.has(provider?.status) && Number.isFinite(age) && age >= 0 && age <= 180000;
+  const fresh = USABLE_STATUSES.has(provider?.status) && Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
   return { rawWindows, accountWindows,
     windows: fresh ? accountWindows.filter(window => validWindow(window, now)) : [] };
 }
@@ -86,7 +94,8 @@ function selectEnergyTarget(providers, settings, now = Date.now()) {
   if (!memberIds.length) return { mode, memberIds, controllingPeriod: null, remainingPercent: null, windows: [], missingIds: [],
     status: 'incomplete', reason: 'invalid_members' };
 
-  const quotas = new Map(memberIds.map(id => [id, providerQuota(providers?.[id], now)]));
+  const maxAgeMs = quotaMaxAgeMs(settings);
+  const quotas = new Map(memberIds.map(id => [id, providerQuota(providers?.[id], now, maxAgeMs)]));
   // One aggregate member behaves exactly like selecting that account, including
   // valid windows whose duration is not a known comparison period.
   if (memberIds.length === 1) return singleTarget(mode, memberIds, quotas.get(memberIds[0]));
@@ -123,4 +132,4 @@ function selectFreshRemaining(providers, settings, now = Date.now()) {
   return selectEnergyTarget(providers, settings, now).remainingPercent;
 }
 
-module.exports = { selectEnergyTarget, selectFreshRemaining };
+module.exports = { selectEnergyTarget, selectFreshRemaining, quotaMaxAgeMs };
