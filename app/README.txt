@@ -1,10 +1,10 @@
-迪迦额度显示器 v2.0.1
+迪迦额度显示器 v2.0.2
 
 本次修复
-修复刷新间隔为 5 分钟、数据却在 3 分钟后提前变成“待同步”的矛盾。
-暂停、显示等无关设置不再推迟下一次刷新；额度重置和电脑唤醒会主动同步，失败至少间隔 30 秒重试，多个刷新请求合并执行。
-光能条和光能环的每个显示周期均恢复常驻重置倒计时；暂停动画不影响更新，隐藏账号后布局仍会收紧。
-修复退出时尚未完成的初始化或刷新重新启动后台工作的竞态；中文版与英文版同步更新。
+修复 Windows 中已开启“始终置顶”，浮窗和设置窗仍会被普通窗口遮挡的问题。
+Windows 的浮窗与设置窗统一使用正确的原生置顶层级，避免因主任务栏的置顶状态而丢失窗口置顶标记；关闭置顶仍按用户选择生效。
+已完成原生置顶对照测试、6 组回归和 119 项单元测试，并确认本机部署浮窗的原生置顶标记有效，账号与设置继续保留。
+中文版与英文版同步修复；自动刷新、重置倒计时、暂停与紧凑布局等既有功能继续保留。
 
 打开方式
 完整解压便携包，双击 TigaEnergyMonitor.exe，直接出现桌面小悬浮窗。
@@ -81,11 +81,11 @@ Claude 的用量读取为实验性集成：官方没有独立的订阅剩余额�
 中英文版共用此用户资料目录，同一时间运行一个版本即可。发布包不包含用户资料，不要把其他人的资料目录复制到本机。
 
 下载与更新记录
-中文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1
-中文版便携包：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1/TigaEnergyMonitor-v2.0.1-windows-x64-portable.zip
-英文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1-en
-双语源码：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1/TigaEnergyMonitor-v2.0.1-source.zip
-中英文包校验表：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1/TigaEnergyMonitor-v2.0.1-SHA256SUMS.txt
+中文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2
+中文版便携包：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-windows-x64-portable.zip
+英文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en
+双语源码：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-source.zip
+中英文包校验表：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt
 演示视频沿用 v2.0.0 的示例账号录像，不是本次新录制：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4
 
 素材

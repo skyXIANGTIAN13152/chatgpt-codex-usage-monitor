@@ -14,7 +14,7 @@ const target = path.resolve(process.argv[2]);
 const appDirectory = path.join(target, 'resources', 'app');
 const metadata = JSON.parse(fs.readFileSync(path.join(appDirectory, 'package.json'), 'utf8'));
 const locale = metadata.appLocale || 'zh-CN';
-const baseVersion = process.argv[3] || '2.0.1';
+const baseVersion = process.argv[3] || JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version.split('-')[0];
 const expectedVersion = baseVersion + (locale === 'en' ? '-en' : '');
 assert(['zh-CN', 'en'].includes(locale));
 assert.equal(metadata.version, expectedVersion);

@@ -107,7 +107,7 @@ class CodexProvider {
       this.rpc = rpc;
       try {
         await rpc.request('initialize', { clientInfo: {
-          name: 'tiga_usage_monitor', title: 'Tiga Usage Monitor', version: '2.0.1' },
+          name: 'tiga_usage_monitor', title: 'Tiga Usage Monitor', version: '2.0.2' },
         capabilities: { experimentalApi: false } });
         if (this.stopped || epoch !== this.epoch) throw rpcError('STOPPED');
         rpc.notify('initialized');

@@ -65,7 +65,7 @@ const english = {
   '两个选项可同时开启。关闭对应软件后，浮窗仍可独立运行。':'Both options can be enabled. The widget keeps running independently after either app closes.',
   '账号与完整额度':'Accounts and all quotas',
   '在官方页面登录，登录状态分别保存在本机。Claude Code 的额度同步目前为试验功能。':'Sign in on the official pages. Each sign-in is stored separately on this computer. Claude Code quota synchronization is experimental.',
-  'v2.0.1 · 设置自动保存':'v2.0.1 · Changes save automatically',
+  'v2.0.2 · 设置自动保存':'v2.0.2 · Changes save automatically',
   '完成':'Done',
   '请在桌面程序中使用。':'Please use the desktop app.',
   '未登录':'Signed out',

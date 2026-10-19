@@ -1,7 +1,7 @@
 {
   "name": "tiga-energy-monitor",
   "productName": "迪迦额度显示器",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "appLocale": "zh-CN",
   "private": true,
   "description": "Independent desktop allowance monitor with original animated Tiga scenes",

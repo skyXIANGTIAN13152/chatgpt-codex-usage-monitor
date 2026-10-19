@@ -1,20 +1,20 @@
-# Tiga Energy Monitor 2.0.1
+# Tiga Energy Monitor 2.0.2
 
-[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.1.en.md)
+[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.2.en.md)
 
 An independent, transparent Windows desktop widget for Codex allowance from a ChatGPT account and Claude Code subscription usage. The character and account information sit directly on the desktop, with click-through empty space. Codex, ChatGPT, Steam and Wallpaper Engine do not need to stay open.
 
-**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-en-windows-x64-portable.zip)** · [Bilingual source](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-source.zip) · [SHA-256 checksums](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.1-en/TigaEnergyMonitor-v2.0.1-SHA256SUMS.txt) · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.1)
+**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip)** · [Bilingual source](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-source.zip) · [SHA-256 checksums](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt) · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2)
 
-The English edition uses `v2.0.1-en`; the Chinese edition uses `v2.0.1`. Both releases include the same bilingual source archive and checksum table covering both portable packages.
+The English edition uses `v2.0.2-en`; the Chinese edition uses `v2.0.2`. Both releases include the same bilingual source archive and checksum table covering both portable packages.
 
-The [complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4) remains the approximately 1-minute-45-second v2.0.0 recording. It uses the Chinese interface, records actual application windows, and labels all readings as sample data. It is not a new v2.0.1 recording.
+The [complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4) remains the approximately 1-minute-45-second v2.0.0 recording. It uses the Chinese interface, records actual application windows, and labels all readings as sample data. It is not a new v2.0.2 recording.
 
-v2.0.1 fixes five-minute polling being interrupted by a fixed three-minute data lifetime, restores visible reset countdowns for each period, and improves automatic synchronization, retries and shutdown. See the [release notes](docs/release-notes-v2.0.1.en.md).
+v2.0.2 fixes the widget and settings window being covered by ordinary windows despite Always on top being enabled. Automatic refresh, visible reset countdowns and the compact layout remain available. See the [release notes](docs/release-notes-v2.0.2.en.md); the earlier refresh fixes remain documented in the [v2.0.1 notes](docs/release-notes-v2.0.1.en.md).
 
 ## Getting started
 
-1. Extract the entire `TigaEnergyMonitor-v2.0.1-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
+1. Extract the entire `TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
 2. Select the ChatGPT or Claude Code login link. The bundled official component starts its authorization flow, using a separate account directory.
 3. Open Settings to choose visible accounts and either bars or rings. You can show one account, both or neither. The account that controls the character is selected separately.
 4. Drag the character to move the widget. The always-visible toolbar provides refresh, pause, pin, settings and hide-to-tray. Use the tray menu to exit completely.
@@ -28,6 +28,7 @@ v2.0.1 fixes five-minute polling being interrupted by a fixed three-minute data 
 - Independent period colors: Codex uses blue/cyan, changing below 50% toward rose/red; Claude uses white/gold, changing below 50% toward dark yellow/orange-red. A real 0% uses a stone texture. Previews and aggregate selection do not recolor unrelated periods.
 - Three transparent character states: full energy, warning and stone. Body texture and silhouette remain fixed; local moving light is derived from the original wallpapers. Transitions use a 1.8-second crossfade by default. Previewing a state never changes account data.
 - A compact 420×246 logical-pixel widget with 80%, 100%, 125% and 150% scales, saved position, and a separate settings window. Hiding an account moves the remaining information and toolbar upward.
+- Reliable topmost behavior on Windows for both the widget and settings window, fixing their being covered by ordinary windows despite Always on top being enabled. The saved topmost preference still controls both windows.
 - Pause stops animation while quota refresh continues. Reduced-motion mode uses still images and disables transitions.
 - Automatic synchronization at the selected interval, quota reset and computer wake. Unrelated settings do not postpone polling. Failed reads retry after at least 30 seconds; overlapping requests are combined, and unfinished work cannot restart background activity after exit.
 - Optional launch watching for Codex and/or Claude Code, disabled by default. When enabled, a local watcher starts at Windows sign-in and opens the monitor when the selected application launches. Closing that application does not close the monitor. Turning both switches off removes the watcher's startup entry.

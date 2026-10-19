@@ -22,6 +22,10 @@ const SETTINGS_FILE = path.join(APP_DIRECTORY, 'ui', 'settings.html');
 const SETTINGS_URL = pathToFileURL(SETTINGS_FILE).href;
 const RUNTIME_DIRECTORY = path.join(APP_DIRECTORY, 'runtime');
 const PROVIDER_IDS = new Set(['codex', 'claude']);
+// Windows 'floating' anchors the HWND behind Shell_TrayWnd. When the taskbar
+// leaves the topmost band (e.g. fullscreen), this also demotes the widget and
+// its owned settings window. Use a level independent of taskbar placement.
+const WINDOW_TOPMOST_LEVEL = process.platform === 'win32' ? 'pop-up-menu' : 'floating';
 const EXTERNAL_HOSTS = new Set(['auth.openai.com', 'auth0.openai.com', 'chatgpt.com',
   'claude.ai', 'code.claude.com', 'support.claude.com']);
 
@@ -195,8 +199,8 @@ function applyWindowShape() {
 
 function applyWindowSettings(previous = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setAlwaysOnTop(settings.alwaysOnTop, 'floating');
-  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.setAlwaysOnTop(settings.alwaysOnTop, 'floating');
+  mainWindow.setAlwaysOnTop(settings.alwaysOnTop, WINDOW_TOPMOST_LEVEL);
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.setAlwaysOnTop(settings.alwaysOnTop, WINDOW_TOPMOST_LEVEL);
   if (previous.floatingScale !== settings.floatingScale) {
     const current = mainWindow.getBounds();
     const factor = settings.floatingScale / 100;
@@ -368,7 +372,7 @@ function createWindow() {
       allowRunningInsecureContent: false, spellcheck: false },
   });
   mainWindow.setMenu(null);
-  mainWindow.setAlwaysOnTop(settings.alwaysOnTop, 'floating');
+  mainWindow.setAlwaysOnTop(settings.alwaysOnTop, WINDOW_TOPMOST_LEVEL);
   mainWindow.webContents.setZoomFactor(factor);
   protectWindow(mainWindow, ENTRY_URL);
   mainWindow.webContents.on('did-finish-load', () => mainWindow.webContents.setZoomFactor(settings.floatingScale / 100));
@@ -438,7 +442,7 @@ function showSettingsWindow() {
       allowRunningInsecureContent: false, spellcheck: false },
   });
   settingsWindow.setMenu(null);
-  settingsWindow.setAlwaysOnTop(settings.alwaysOnTop, 'floating');
+  settingsWindow.setAlwaysOnTop(settings.alwaysOnTop, WINDOW_TOPMOST_LEVEL);
   settingsWindow.webContents.setZoomFactor(1);
   protectWindow(settingsWindow, SETTINGS_URL);
   settingsWindow.once('ready-to-show', () => {
