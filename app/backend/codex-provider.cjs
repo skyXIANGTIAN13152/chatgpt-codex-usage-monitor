@@ -107,7 +107,7 @@ class CodexProvider {
       this.rpc = rpc;
       try {
         await rpc.request('initialize', { clientInfo: {
-          name: 'tiga_usage_monitor', title: 'Tiga Usage Monitor', version: '2.0.2' },
+          name: 'tiga_usage_monitor', title: 'Tiga Usage Monitor', version: '2.0.3' },
         capabilities: { experimentalApi: false } });
         if (this.stopped || epoch !== this.epoch) throw rpcError('STOPPED');
         rpc.notify('initialized');
@@ -134,10 +134,15 @@ class CodexProvider {
   }
 
   async readState(epoch) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    let reconnected = false;
+    let renewal = 'available';
+    while (true) {
       try {
         const rpc = await this.connect();
-        const response = await rpc.request('account/read', { refreshToken: false });
+        if (this.stopped || epoch !== this.epoch) return this.getState();
+        const refreshToken = renewal === 'requested';
+        if (refreshToken) renewal = 'attempted';
+        const response = await rpc.request('account/read', { refreshToken });
         if (this.stopped || epoch !== this.epoch) return this.getState();
         const account = response && response.account;
         if (!account || account.type !== 'chatgpt') {
@@ -158,11 +163,16 @@ class CodexProvider {
           error: parsed.windows.length ? null : t('官方暂未提供额度数据。') });
       } catch (error) {
         if (this.stopped || epoch !== this.epoch || error.code === 'STOPPED') return this.getState();
-        if (error.code === 'UNAUTHORIZED') {
-          this.core.stop();
-          return this.publish({ ...EMPTY(), error: publicError(error) });
+        if (error.code === 'TOKEN_EXPIRED' && renewal === 'available') {
+          renewal = 'requested';
+          continue;
         }
-        if (attempt === 0 && ['TIMEOUT', 'CLOSED', 'PROTOCOL'].includes(error.code)) {
+        if (error.code === 'UNAUTHORIZED' || error.code === 'TOKEN_EXPIRED') {
+          this.core.stop();
+          return this.publish({ ...EMPTY(), error: publicError(rpcError('UNAUTHORIZED')) });
+        }
+        if (!reconnected && ['TIMEOUT', 'CLOSED', 'PROTOCOL'].includes(error.code)) {
+          reconnected = true;
           if (this.rpc) this.rpc.stop();
           this.rpc = null;
           continue;
@@ -170,7 +180,6 @@ class CodexProvider {
         return this.publish({ status: 'error', error: publicError(error) });
       }
     }
-    return this.getState();
   }
 
   login() {

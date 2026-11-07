@@ -1,25 +1,25 @@
-# Tiga Energy Monitor 2.0.2
+# Tiga Energy Monitor 2.0.3
 
-[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.2.en.md)
+[中文](README.md) · English · [Release notes](docs/release-notes-v2.0.3.en.md)
 
 An independent, transparent Windows desktop widget for Codex allowance from a ChatGPT account and Claude Code subscription usage. The character and account information sit directly on the desktop, with click-through empty space. Codex, ChatGPT, Steam and Wallpaper Engine do not need to stay open.
 
-**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip)** · [Bilingual source](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-source.zip) · [SHA-256 checksums](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt) · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2)
+**[Download the English portable package](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-en-windows-x64-portable.zip)** · [Bilingual source](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-source.zip) · [SHA-256 checksums](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-SHA256SUMS.txt) · [English release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3-en) · [Chinese release](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3)
 
-The English edition uses `v2.0.2-en`; the Chinese edition uses `v2.0.2`. Both releases include the same bilingual source archive and checksum table covering both portable packages.
+The English edition uses `v2.0.3-en`; the Chinese edition uses `v2.0.3`. Both releases include the same bilingual source archive and checksum table covering both portable packages.
 
-The [complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4) remains the approximately 1-minute-45-second v2.0.0 recording. It uses the Chinese interface, records actual application windows, and labels all readings as sample data. It is not a new v2.0.2 recording.
+The [complete demo](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4) is a 1-minute-45-second recording of v2.0.0. It shows the Chinese interface and labels all readings as sample data.
 
-v2.0.2 fixes the widget and settings window being covered by ordinary windows despite Always on top being enabled. Automatic refresh, visible reset countdowns and the compact layout remain available. See the [release notes](docs/release-notes-v2.0.2.en.md); the earlier refresh fixes remain documented in the [v2.0.1 notes](docs/release-notes-v2.0.1.en.md).
+v2.0.3 fixes expired Codex sessions showing a generic connection error and leaving the old reset countdown on screen. The monitor asks the official component to renew the session once and retries the quota read. If the session is still expired, it clears the old quota and prompts you to sign in again. See the [release notes](docs/release-notes-v2.0.3.en.md). Earlier fixes are documented in [v2.0.2](docs/release-notes-v2.0.2.en.md) and [v2.0.1](docs/release-notes-v2.0.1.en.md).
 
 ## Getting started
 
-1. Extract the entire `TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
+1. Extract the entire `TigaEnergyMonitor-v2.0.3-en-windows-x64-portable.zip` and run `TigaEnergyMonitor.exe`. The Windows x64 package includes its runtime components.
 2. Select the ChatGPT or Claude Code login link. The bundled official component starts its authorization flow, using a separate account directory.
 3. Open Settings to choose visible accounts and either bars or rings. You can show one account, both or neither. The account that controls the character is selected separately.
 4. Drag the character to move the widget. The always-visible toolbar provides refresh, pause, pin, settings and hide-to-tray. Use the tray menu to exit completely.
 
-**Validation boundary:** existing authorized Codex readings on the local machine have recovered and were visually confirmed. Multi-scenario automatic-refresh, countdown, settings and quota regressions use isolated fixtures, rather than live accounts. End-to-end official Claude Code authorization followed by actual usage reading has not been completed; that integration remains experimental. Missing readings are never replaced with demo values.
+The local widget was verified to show both five-hour and weekly Codex quotas again. The automated refresh, countdown, settings and quota tests use isolated fixtures. Claude Code quota reading remains experimental pending a live sign-in and usage check.
 
 ## Features
 

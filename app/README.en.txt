@@ -1,14 +1,14 @@
-Tiga Energy Monitor v2.0.2 — English Edition
+Tiga Energy Monitor v2.0.3 — English Edition
 
 THIS UPDATE
-Fixes the widget and settings window being covered by ordinary windows
-despite Always on top being enabled. Both windows now use the correct native
-topmost level, avoiding loss of the native flag when the primary taskbar is
-not topmost. Turning Always on top off still follows your preference.
-Native A/B checks, six regression groups and 119 unit tests passed. The installed
-widget's native topmost flag was confirmed, with account data and settings kept.
-Both language editions include the fix. Existing automatic refresh, reset
-countdowns, pause controls and compact layout remain available.
+Fixes an expired Codex session showing a generic connection error while
+leaving the old reset countdown on screen. The monitor asks the official
+component to renew the session once, then retries the quota read. If the
+session is still expired, it clears the old quota and countdown and asks
+you to sign in again.
+All 121 unit tests passed, including successful renewal and continued expiry.
+The existing local authorization was verified to show both five-hour and
+weekly quotas again. Both language editions include this fix.
 
 START
 Extract the entire portable ZIP, then run TigaEnergyMonitor.exe.
@@ -32,8 +32,8 @@ Claude usage reading is experimental. It parses the official Claude Code
 /usage screen. First-run setup, account permissions or upstream UI changes
 may prevent a reading. Follow the official setup link when requested, or use
 the official usage page. Missing readings are not replaced with sample data.
-Existing authorized Codex readings on the local machine have recovered and
-were visually confirmed. Multi-scenario automated regressions use isolated
+The existing local Codex account was verified in the widget to show
+both five-hour and weekly quotas again. Multi-scenario automated regressions use isolated
 fixture providers, rather than live accounts. End-to-end official Claude Code
 authorization followed by actual usage reading has not been completed.
 
@@ -92,14 +92,14 @@ SOURCE, LICENSES AND MEDIA
 Source and release notes:
 https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor
 English release:
-https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3-en
 English portable package:
-https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-en-windows-x64-portable.zip
 Shared bilingual source:
-https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-source.zip
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-source.zip
 Checksums for both language packages:
-https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2-en/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt
-The demo remains the v2.0.0 sample-account recording; it is not a new v2.0.2 video:
+https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3-en/TigaEnergyMonitor-v2.0.3-SHA256SUMS.txt
+The demo remains the v2.0.0 sample-account recording; it is not a new v2.0.3 video:
 https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4
 
 Project code continues under MIT. Third-party programs and wallpaper-derived

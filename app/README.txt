@@ -1,10 +1,10 @@
-迪迦额度显示器 v2.0.2
+迪迦额度显示器 v2.0.3
 
 本次修复
-修复 Windows 中已开启“始终置顶”，浮窗和设置窗仍会被普通窗口遮挡的问题。
-Windows 的浮窗与设置窗统一使用正确的原生置顶层级，避免因主任务栏的置顶状态而丢失窗口置顶标记；关闭置顶仍按用户选择生效。
-已完成原生置顶对照测试、6 组回归和 119 项单元测试，并确认本机部署浮窗的原生置顶标记有效，账号与设置继续保留。
-中文版与英文版同步修复；自动刷新、重置倒计时、暂停与紧凑布局等既有功能继续保留。
+修复 Codex 授权过期后，浮窗只显示“连接异常”并保留旧重置倒计时的问题。
+识别到官方服务返回的明确过期错误后，显示器会请求官方组件续期一次，再读取额度。若仍提示过期，会清除旧额度与倒计时，并提示重新登录。
+121 项单元测试通过，包含续期成功与持续过期。本机已用现有授权确认五小时和周额度恢复。
+中英文版同步更新。自动刷新、常驻倒计时与置顶等功能继续可用。
 
 打开方式
 完整解压便携包，双击 TigaEnergyMonitor.exe，直接出现桌面小悬浮窗。
@@ -61,7 +61,7 @@ Windows 的浮窗与设置窗统一使用正确的原生置顶层级，避免因
 
 验证范围与限制
 已验证独立启动、两套原版官方组件在全新目录下的未登录状态、小悬浮窗和独立设置窗口、显示选择与缩放、真实视频播放和平滑切换及后台自动化测试。
-本机既有授权的 Codex 实际读数已恢复，并已目视确认。多场景自动回归使用隔离的测试账号状态，不代表所有真实账号与网络场景均已验证。
+本机既有授权的 Codex 五小时与周额度已恢复，并已在实际浮窗中确认。多场景自动回归使用隔离的测试账号状态，不代表所有真实账号与网络场景均已验证。
 Claude Code 官方授权后读取实际用量的完整端到端验证尚未完成。
 Claude 的用量读取为实验性集成：官方没有独立的订阅剩余额度 JSON 查询命令，这里通过原版 CLI 的 /usage 界面读取。
 首次官方设置、账号权限或上游界面变化可能使 Claude 显示“等待同步”；此时提供官方用量页及需要时的“完成官方首次设置”入口。
@@ -81,11 +81,11 @@ Claude 的用量读取为实验性集成：官方没有独立的订阅剩余额�
 中英文版共用此用户资料目录，同一时间运行一个版本即可。发布包不包含用户资料，不要把其他人的资料目录复制到本机。
 
 下载与更新记录
-中文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2
-中文版便携包：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-windows-x64-portable.zip
-英文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en
-双语源码：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-source.zip
-中英文包校验表：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt
+中文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3
+中文版便携包：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-windows-x64-portable.zip
+英文版发布页：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3-en
+双语源码：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-source.zip
+中英文包校验表：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-SHA256SUMS.txt
 演示视频沿用 v2.0.0 的示例账号录像，不是本次新录制：https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4
 
 素材

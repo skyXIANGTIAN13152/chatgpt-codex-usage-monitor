@@ -331,6 +331,43 @@ test('reauthorization cannot merge a previous session weekly quota into a new ac
   assert.equal((await pending).windows.length, 1);
 });
 
+test('renews an expired ChatGPT token once and retries the official quota read', async (t) => {
+  let quotaReads = 0;
+  const h = await harness(t, { signedIn: true, handler: (request, child) => {
+    if (request.method !== 'account/rateLimits/read' || ++quotaReads !== 1) return false;
+    child.send({ id: request.id, error: { code: -32603,
+      message: 'failed to fetch codex rate limits: HTTP 401 Unauthorized {"code":"token_expired","detail":"PRIVATE_TOKEN"}' } });
+    return true;
+  } });
+  const state = await h.provider.start();
+  assert.equal(state.status, 'connected');
+  assert.equal(state.error, null);
+  assert.equal(state.windows.length, 2);
+  assert.equal(quotaReads, 2);
+  assert.deepEqual(h.children[0].requests.filter(request => request.method === 'account/read')
+    .map(request => request.params.refreshToken), [false, true]);
+  assert.equal(h.opened.length, 0);
+  assert.ok(!JSON.stringify(h.updates).includes('PRIVATE_TOKEN'));
+});
+
+test('offers sign-in and drops stale quota if an expired token cannot be renewed', async (t) => {
+  let quotaReads = 0;
+  const h = await harness(t, { signedIn: true, handler: (request, child) => {
+    if (request.method !== 'account/rateLimits/read' || ++quotaReads === 1) return false;
+    child.send({ id: request.id, error: { code: -32603,
+      message: 'failed to fetch codex rate limits: HTTP 401 Unauthorized {"code":"token_expired"}' } });
+    return true;
+  } });
+  assert.equal((await h.provider.start()).windows.length, 2);
+  const state = await h.provider.refresh();
+  assert.equal(state.status, 'signed_out');
+  assert.match(state.error, /登录已过期/);
+  assert.deepEqual(state.windows, []);
+  assert.equal(quotaReads, 3);
+  assert.deepEqual(h.children[0].requests.filter(request => request.method === 'account/read')
+    .map(request => request.params.refreshToken), [false, false, true]);
+});
+
 test('RPC error payload and stderr cannot leak credentials into application state', async (t) => {
   const h = await harness(t, { signedIn: true, handler: (request, child) => {
     if (request.method !== 'account/rateLimits/read') return false;

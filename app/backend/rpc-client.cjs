@@ -8,6 +8,19 @@ function rpcError(code) {
   return error;
 }
 
+function failureCode(method, error) {
+  const code = Number(error.code);
+  if (code === 401 || code === 403) return 'UNAUTHORIZED';
+  // The Codex app-server wraps the usage endpoint's HTTP error in an RPC error.
+  const message = error.message;
+  if (method === 'account/rateLimits/read' && code === -32603 &&
+      typeof message === 'string' && message.startsWith('failed to fetch codex rate limits:') &&
+      /\b401\b/.test(message) && /\b(?:token_expired|token (?:has |is )?expired)\b/i.test(message)) {
+    return 'TOKEN_EXPIRED';
+  }
+  return 'RPC_FAILED';
+}
+
 // The transport deliberately never logs server output or forwards server error text.
 class RpcClient {
   constructor({ executable, args, cwd, env, spawnProcess = spawn, timeoutMs = 15000,
@@ -39,7 +52,7 @@ class RpcClient {
         this.pending.delete(id);
         reject(rpcError('TIMEOUT'));
       }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { method, resolve, reject, timer });
       try {
         const message = { id, method };
         if (params !== undefined) message.params = params;
@@ -82,8 +95,7 @@ class RpcClient {
         this.pending.delete(message.id);
         clearTimeout(pending.timer);
         if (message.error) {
-          const code = Number(message.error.code);
-          pending.reject(rpcError(code === 401 || code === 403 ? 'UNAUTHORIZED' : 'RPC_FAILED'));
+          pending.reject(rpcError(failureCode(pending.method, message.error)));
         } else {
           pending.resolve(message.result);
         }

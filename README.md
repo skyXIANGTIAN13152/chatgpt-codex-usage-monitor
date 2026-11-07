@@ -1,25 +1,25 @@
-# 迪迦额度显示器 · Tiga Energy Monitor 2.0.2
+# 迪迦额度显示器 · Tiga Energy Monitor 2.0.3
 
-中文说明 · [English](README.en.md) · [更新记录](docs/release-notes-v2.0.2.md)
+中文说明 · [English](README.en.md) · [更新记录](docs/release-notes-v2.0.3.md)
 
 一个独立运行的 Windows 桌面透明悬浮窗，分别显示 ChatGPT 账号的 Codex 额度与 Claude Code 订阅额度。人物和信息直接浮在桌面上，透明空白区域可穿透；运行时无需打开 Codex、ChatGPT、Steam 或 Wallpaper Engine。
 
-**[下载 v2.0.2 便携包](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-windows-x64-portable.zip)** · [双语源码](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-source.zip) · [SHA-256 校验表](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.2/TigaEnergyMonitor-v2.0.2-SHA256SUMS.txt) · [发布页](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2)
+**[下载 v2.0.3 便携包](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-windows-x64-portable.zip)** · [双语源码](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-source.zip) · [SHA-256 校验表](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.3/TigaEnergyMonitor-v2.0.3-SHA256SUMS.txt) · [发布页](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3)
 
-中文版使用 `v2.0.2`；完整英文版使用 [v2.0.2-en](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.2-en)，下载 `TigaEnergyMonitor-v2.0.2-en-windows-x64-portable.zip`。两个发布页提供同一份双语源码和中英文包校验表。
+中文版使用 `v2.0.3`；完整英文版使用 [v2.0.3-en](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/tag/v2.0.3-en)，下载 `TigaEnergyMonitor-v2.0.3-en-windows-x64-portable.zip`。两个发布页提供同一份双语源码和中英文包校验表。
 
 [完整演示](https://github.com/skyXIANGTIAN13152/chatgpt-codex-usage-monitor/releases/download/v2.0.0/TigaEnergyMonitor-v2.0.0-demo.mp4)沿用 v2.0.0 的约 1 分 45 秒录像，录制实际应用窗口，全程标注“演示额度 · 非真实账号”；不是本次新录制。
 
-v2.0.2 修复 Windows 中“始终置顶”已开启，浮窗和设置窗仍会被普通窗口遮挡的问题，并保留自动刷新、常驻重置倒计时和紧凑布局。见[本次更新记录](docs/release-notes-v2.0.2.md)；先前的刷新修复保留在 [v2.0.1 记录](docs/release-notes-v2.0.1.md)。
+v2.0.3 修复 Codex 授权过期后显示“连接异常”并保留旧倒计时的问题。显示器会通过官方组件尝试续期一次并重读额度。若仍过期，会清除旧额度并提示重新登录。参见[本次更新记录](docs/release-notes-v2.0.3.md)、[置顶修复](docs/release-notes-v2.0.2.md)和[刷新修复](docs/release-notes-v2.0.1.md)。
 
 ## 开始使用
 
-1. 完整解压 `TigaEnergyMonitor-v2.0.2-windows-x64-portable.zip`，双击 `TigaEnergyMonitor.exe`。发布包面向 Windows x64，已包含运行组件。
+1. 完整解压 `TigaEnergyMonitor-v2.0.3-windows-x64-portable.zip`，双击 `TigaEnergyMonitor.exe`。发布包面向 Windows x64，已包含运行组件。
 2. 在浮窗中点击“使用 ChatGPT 账号登录”或“使用 Claude Code 账号登录”，由随附的官方组件打开授权流程。首次启动使用独立账号目录，不自动沿用旧版登录。
 3. 打开设置，选择要显示的账号，以及“光能条”或“光能环”。两个账号可分别显示、同时显示或全部隐藏；控制迪迦状态的目标另行选择。
 4. 拖动人物移动窗口；工具栏依次提供刷新、暂停、置顶、设置与收进托盘。工具栏始终显示。完全退出请使用托盘菜单。
 
-**验证边界：**本机既有授权的 Codex 实际读数已恢复并目视确认；自动刷新、倒计时、设置与多种额度状态的自动回归使用隔离 fixture，不代表所有真实账号场景均已验证。Claude Code 官方授权后读取实际用量的完整端到端验证尚未完成，读取仍属于实验性集成。未读到数据时不会填入演示额度。
+本机浮窗已恢复 Codex 五小时与周额度。自动刷新、倒计时、设置与多种额度状态的回归使用隔离测试数据。Claude Code 的额度读取仍属实验性，完整的真实授权和用量读取有待验证。
 
 ## 主要功能
 
